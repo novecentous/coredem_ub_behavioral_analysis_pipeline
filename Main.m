@@ -54,13 +54,7 @@ else
     participantsToInclude=input(prompt);
 end
 
-prompt='Do you want to plot behavioral data (1), or oculometry data (0)? ';
-temp=input(prompt);
-
-if temp==1
-    script_plotsBehav
-elseif temp==0
-    script_plotsOculometry
-end
+script_plotsBehav
+script_plotsOculometry
 
 %%
