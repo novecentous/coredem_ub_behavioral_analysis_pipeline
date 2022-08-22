@@ -10,8 +10,8 @@ Authors: Gloria Cecchini (MATLAB preprocessing scripts), Michael DePass (.mat to
 3. .mat to .csv Python conversion script ideal for import to Pandas dataframe.
 
 ### MATLAB Pipeline instructions
-1.Gloria pls help
-2.Glooooria 
+1. Gloria pls help
+2. Glooooria 
 3. Gloooria
 
 
