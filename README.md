@@ -9,6 +9,12 @@ Authors: Gloria Cecchini (MATLAB preprocessing scripts), Michael DePass (.mat to
     - Export data to .mat file 
 3. .mat to .csv Python conversion script ideal for import to Pandas dataframe.
 
+### MATLAB Pipeline instructions
+1.Gloria pls help
+2.Glooooria 
+3. Gloooria
+
+
 Example decisions plotted for Horizons 0 and 1 of the Consequential task:
 | Horizon 1                           |                           Horizon 2 |
 |-------------------------------------|-------------------------------------|
