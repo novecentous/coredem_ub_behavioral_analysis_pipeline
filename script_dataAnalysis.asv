@@ -1,0 +1,4226 @@
+
+load([folderRawData,'/allSubjs.mat'])
+     
+% include only some participants
+num_subj=length(participantsToInclude);
+block_withinH=block_withinH(:,participantsToInclude);
+choice=choice(:,participantsToInclude);
+decision=decision(:,participantsToInclude);
+err_trial=err_trial(:,participantsToInclude);
+eventsTime=eventsTime(:,participantsToInclude);
+MT=MT(:,participantsToInclude);
+mvOff=mvOff(:,participantsToInclude);
+mvOn=mvOn(:,participantsToInclude);
+OrderTask=OrderTask(:,participantsToInclude);
+peakVel=peakVel(:,participantsToInclude);
+Performance=Performance(:,participantsToInclude);
+RT=RT(:,participantsToInclude);
+Stimuli=Stimuli(:,participantsToInclude);
+tPeakVel=tPeakVel(:,participantsToInclude);
+TrialDiff=TrialDiff(:,participantsToInclude);
+eLp=eLp(:,participantsToInclude);
+eLx=eLx(:,participantsToInclude);
+eLy=eLy(:,participantsToInclude);
+eRp=eRp(:,participantsToInclude);
+eRx=eRx(:,participantsToInclude);
+eRy=eRy(:,participantsToInclude);
+eTime=eTime(:,participantsToInclude);
+allEvents=allEvents(:,participantsToInclude);
+
+
+% set Performance to zero if error trial
+for sub=1:num_subj
+    for nH=0:nnH-1 
+%         extra=mod(length(Performance{nH+1,sub}),nH+1);
+%         Performance{nH+1,sub}=Performance{nH+1,sub}(1:end-extra);
+%         errTr=err_trial{nH+1,sub}(1:end-extra);
+        errTr=err_trial{nH+1,sub};
+        ind1=reshape(errTr,nH+1,[]);
+        ind1=sum(ind1);
+        errTr=find(ind1); % index of the episode with an error
+        errTr=errTr*(nH+1); % index of the last trial w.E
+        Performance{nH+1,sub}(errTr)=0;
+    end
+end
+
+
+subj_name=split(sprintf('P.%d ',1:num_subj));
+subj_name=subj_name(1:num_subj);
+
+% color for trial within episode
+col=[
+    0.12      0.52      0.22;   % green
+    0         0.35      0.70;   % blue
+    0.81      0.16      0.16;   % red
+    ]; 
+% color for DIFFICULTY
+col_d=[
+    0         0.41      0.36;   % acquamarina (RP)
+    0.30      0.74      0.93;   % light blue (not RP all)
+    0.76      0.57      0.87;   % light purple (Pass)
+    0.45      0.18         0;   % brown (F)
+    0.70      0.48      0.32;   % light brown (not F)
+    0.49      0.18      0.55;   % purple (Act)
+                            ];
+font_dim=16;
+mark={'o','^','+'};
+
+set(0,'defaultLegendInterpreter','latex')
+set(0,'defaultAxesTickLabelInterpreter','latex')
+set(0,'defaultTextInterpreter','latex')
+
+%% when do they learn?
+th=0.92;
+th2=0.9;
+time_learn=cell(nnH,num_subj);
+time_learn2=cell(nnH,num_subj);
+for sub=1:num_subj
+    for nH=0:nnH-1
+        % remove error trials from participant
+        perf=Performance{nH+1,sub};
+        errTr=err_trial{nH+1,sub};
+        ind1=reshape(errTr,nH+1,[]);
+        ind1=sum(ind1,1);
+        errTr=find(ind1);
+        errTr=errTr*(nH+1);
+        perf(errTr)=nan; % set performance for error trial to zero
+        noErrTr=find(ind1<0.1);
+        noErrTrIdx=noErrTr*(nH+1);  % index of episodes
+        % select easy trials
+        ind_easy=find(TrialDiff{nH+1,sub}<0.97);
+        ind_easyNoErr=intersect(noErrTrIdx,ind_easy);
+        perf_easy=perf(ind_easyNoErr);
+        ind_easyNoErr=ind_easyNoErr/(nH+1);
+        % plot(ind_easyNoErr,perf_easy,'gx')
+        perf_t=nan(length(perf_easy),1);
+        temp1=nan(length(perf_easy),1);
+        for t=1:length(perf_easy)-10
+            perf_t(t)=mean(perf_easy(t:end),'omitnan');
+            temp1(t)=mean(perf_easy(t:t+10));
+        end
+        temp=find(perf_t>th,1,'first');
+        time_learn{nH+1,sub}=ind_easyNoErr(temp);
+        temp=find(temp1>th2,1,'first');
+        time_learn2{nH+1,sub}=ind_easyNoErr(temp);
+    end
+end
+
+%% Performance vs Episode
+
+figure(1);clf;
+set(gcf,'Position',[1 1 1200 400])
+tt = tiledlayout(6,num_subj,'Padding','none','TileSpacing','compact',...
+    'TileIndexing','columnmajor');
+
+for sub=1:num_subj
+    feedback=cell(6,3);
+    errTr=cell(6,3);
+    for nH=0:nnH-1
+        for order=1:6
+            ind=find(OrderTask{nH+1,sub}==order);
+            if isempty(ind)
+                continue
+            end
+            extra=mod(length(ind),nH+1);
+            ind=ind(1:end-extra);
+            errTr{order,1}=err_trial{nH+1,sub}(ind);
+            ind1=reshape(errTr{order,1},nH+1,[]);
+            ind1=sum(ind1);
+            errTr{order,2}=find(ind1);
+            ind=ind(nH+1:nH+1:end);
+            errTr{order,3}=ind(errTr{order,2})/(nH+1);
+            
+            feedback{order,1}=Performance{nH+1,sub}(ind);
+            feedback{order,2}=nH;
+            feedback{order,3}=ind/(nH+1);
+        end
+    end
+
+    for order=1:6
+%         subplot(num_subj,6,(sub-1)*6+order)
+        nexttile
+        ax=gca;
+        hold on
+        plot(feedback{order,3},feedback{order,1},'o','Color',col(feedback{order,2}+1,:),...
+            'MarkerSize',4,'DisplayName','Perf.')
+        plot(errTr{order,3},feedback{order,1}(errTr{order,2}),'k*',...
+            'MarkerSize',4,'DisplayName','Err. tr.')
+        ylim([-0.1 1.1])
+        xlim([0 105])
+        yticks([0,1])
+        xticks([1 50 100])
+%         text(0,0.5,['nH=',num2str(feedback{order,2})])
+        
+        if sub~=1
+            yticks([])
+        end
+        if order~=6
+            xticks([])
+            xlabel([])
+        end
+        box on; ax.FontSize=font_dim;
+        if order==1
+           title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['Ss. ',num2str(order)]);
+            yticks([])
+        end
+%         if sub==num_subj && order==1
+%             lgn=legend('Location','northeast','FontSize',font_dim-4);
+%             lgn.ItemTokenSize=[10,18];
+%         end
+    end
+end
+xlabel(tt,'\bf Episode','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tt,'\bf Performance','Interpreter','latex','FontSize',font_dim+2)
+
+% pause(0.5)
+% lgn.Position(1)=lgn.Position(1)+0.005;
+% lgn.Position(2)=lgn.Position(2)+0.01;
+
+%% decision (psi) : Choice vs Time (episode) with order
+
+figure(2);clf;
+set(gcf,'Position',[1 1 1200 900])
+tl = tiledlayout(num_subj,6,'Padding','none','TileSpacing','compact');
+for sub=1:num_subj
+    feedback=cell(6,3);
+    errTr=cell(6,2);
+    for nH=0:nnH-1
+        for order=1:6
+            ind=find(OrderTask{nH+1,sub}==order);
+            if isempty(ind)
+                continue
+            end
+            extra=mod(length(ind),nH+1);
+            ind=ind(1:end-extra);
+            errTr{order,1}=err_trial{nH+1,sub}(ind);
+            ind1=reshape(errTr{order,1},nH+1,[]);
+            ind1=sum(ind1);
+            errTr{order,2}=find(ind1);
+            temp=nan(300,1);
+            temp2=nan(300,1);
+            l=0;
+            for t=1:nH+1
+                ind2=ind(t:nH+1:end);
+                errTr{order,3}=ind2(errTr{order,2})/(nH+1);
+                temp(l+1:l+length(ind2))=decision{nH+1,sub}(ind2)+2*(t-1);
+                temp2(l+1:l+length(ind2))=ind2/(nH+1);
+                l=l+length(ind2);
+            end
+            feedback{order,1}=temp(1:l);
+            feedback{order,3}=temp2(1:l);
+            feedback{order,2}=nH;
+        end
+    end
+
+    for order=1:6
+        nexttile
+        ax=gca;
+        hold on
+        pl1=plot(feedback{order,3},feedback{order,1},'bo','MarkerSize',3,'DisplayName','Performance');
+        pl2=plot(errTr{order,3},feedback{order,1}(errTr{order,2}),'r*','MarkerSize',3,'DisplayName','Error trial');
+        yline(1.5)
+        yline(3.5)
+        ylim([-0.5 5.5])
+        xlim([0 105])
+%         if order==1
+            xticks([1 50 100])
+%         else
+%             xticks([50 100])
+%         end
+        
+        if sub~=num_subj
+            xticks([])
+            xlabel([])
+        end
+        box on; ax.FontSize=font_dim;
+        if sub==1
+           title(['Session ',num2str(order)],'FontSize',font_dim)
+        end
+        if order~=1
+            yticks([])
+        else
+            yticks(0:5)
+            yticklabels([0,1,0,1,0,1])
+            ax.YAxis.FontSize = font_dim-5;
+            ylabel('$T_E 1$ - $T_E 2$ - $T_E 3$')
+        end
+        if order==6
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(subj_name{sub});
+            yticks([])
+        end
+        if sub==1 && order==6
+            lgn=legend([pl1,pl2],'Location','northeast','FontSize',font_dim-4);
+            lgn.ItemTokenSize=[10,18];
+        end
+    end
+end
+
+xlabel(tl,'\bf Episode','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'\bf Choice','Interpreter','latex','FontSize',font_dim+2)
+
+pause(0.5)
+lgn.Position(1)=lgn.Position(1)+0.004;
+lgn.Position(2)=lgn.Position(2)+0.006;
+
+
+%% Visual discrimination
+
+% for nH=0 select the second half of the trials (50-100)
+
+binsEdge=[0.78,0.83,0.88,0.93,0.98,1]; % for difficulty
+name_d=[0.2,0.15,0.1,0.05,0.01];
+
+figure(3);clf;
+set(gcf,'Position',[1 1 1200 600])
+tl = tiledlayout(ceil(sqrt(num_subj)),ceil(sqrt(num_subj)),'Padding','none','TileSpacing','compact');
+nH=0;
+
+for sub=1:num_subj
+    t=1; % trial within episode     
+    rt=decision{nH+1,sub}(50+t:nH+1:end);
+    dif=TrialDiff{nH+1,sub}(50+t:nH+1:end);
+    % remove error trials
+    et=err_trial{nH+1,sub}(50+t:nH+1:end);
+    nonerr=find(~et);
+    rt=rt(nonerr);
+    dif=dif(nonerr);
+
+    rt_sections=nan(length(binsEdge)-1,2);
+        for i=1:length(binsEdge)-1
+            temp=find(dif>binsEdge(i) & dif<=binsEdge(i+1));
+            temp1=rt(temp);
+            rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+        end
+
+    nexttile
+    ax=gca;
+    hold on 
+    errorbar(1-name_d,rt_sections(:,1),rt_sections(:,2)/2,...
+            'o','Color',col(t,:),'DisplayName',['T',num2str(t)])
+%     disp(['sub=',num2str(sub),', VD=',num2str(rt_sections(end,1))])
+    ylim([-0.1 1.1+2*(t-1)])
+    yline(1)
+    xlim([0.78 1])
+
+%     if sub~=1 % && sub~=5
+%         yticks([])
+%     end
+    if nH==0
+        title(subj_name{sub})
+    end
+
+    box on; ax.FontSize=font_dim;
+%         if sub==1&&nH>0
+%             lgn=legend('Location','northwest');
+%             lgn.FontSize=font_dim-4;
+% %             lgn.Position(1)=lgn.Position(1)+0.2;
+%         end  
+end
+
+
+xlabel(tl,'Difficulty','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'VD','Interpreter','latex','FontSize',font_dim+2)
+
+%% initial bias phi_0
+
+table_phi0=nan(num_subj*14,5); % 1. phi_0, 2. subj #, 3. nH, 4. block, 5. trial within episode
+
+% for each block select the first n_phi0 episodes
+n_phi0=3;
+
+figure(4);clf;
+set(gcf,'Position',[1 1 1200 600])
+tl = tiledlayout(ceil(sqrt(num_subj)),ceil(sqrt(num_subj)),'Padding','none','TileSpacing','compact');
+
+l=0;
+for sub=1:num_subj
+    feedback=cell(6,2);
+    errTr=cell(6,3);
+    for nH=0:nnH-1
+        for order=1:6
+            ind=find(OrderTask{nH+1,sub}==order);
+            if isempty(ind)
+                continue
+            end
+            extra=mod(length(ind),nH+1);
+            ind=ind(1:end-extra);
+            errTr{order,1}=err_trial{nH+1,sub}(ind);
+            ind1=reshape(errTr{order,1},nH+1,[]);
+            ind1=sum(ind1,1);
+            errTr{order,2}=find(ind1);
+            errTr{order,3}=find(TrialDiff{nH+1,sub}(ind)>0.96);
+            errTr{order,3}=ceil(errTr{order,3}/(nH+1));
+            
+            feedback{order,1}=nan(nH+1,1);
+            feedback{order,2}=nan(nH+1,1);
+            
+            noErr=setdiff(1:length(ind),errTr{order,2});
+%             noErr=setdiff(noErr,errTr{order,3}); % select this if you want to eliminate the difficult trials
+            noErr=noErr(1:n_phi0);
+            for t=1:nH+1
+                ind2=(noErr-1)*(nH+1)+t;
+                ind3=ind(ind2);
+                feedback{order,1}(t)=mean(decision{nH+1,sub}(ind3));
+                feedback{order,2}(t)=std(decision{nH+1,sub}(ind3));
+                
+                l=l+1;
+                table_phi0(l,:)=[feedback{order,1}(t),sub,nH,order,t];
+            end
+            feedback{order,3}=nH;
+        end
+    end
+    nexttile
+    ax=gca;
+    hold on
+    for order=1:6
+%         subplot(num_subj,6,(sub-1)*6+order)
+        
+%         errorbar(repmat(order,feedback{order,3}+1,2),feedback{order,1},0.5*feedback{order,2},'bo','MarkerSize',3)
+        for t=1:feedback{order,3}+1
+            plot(order,feedback{order,1}(t),'Marker',mark{t},'MarkerSize',8,'Color',col(t,:))
+        end
+        
+%         yline(1.5)
+%         yline(3.5)
+        ylim([0 1])
+        xlim([0 7])
+%         xticks([50 100])
+%         title(['nH=',num2str(feedback{order,2})])
+        
+%         if order~=1
+%             yticks([])
+%         else
+%             yticks([0.5,2.5,4.5])
+%             yticklabels({'T.1','T.2','T.3'})
+%         end
+        if order==6
+            yyaxis right
+            ylabel(subj_name{sub},'Color','r');
+            yticks([])
+        end
+        if sub~=num_subj
+            xticks([])
+            xlabel([])
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+
+xlabel(tl,'Block','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'Initial bias','Interpreter','latex','FontSize',font_dim+2)
+
+
+%% RT vs MT per level of Difficulty
+
+% binsEdge=linspace(0.56,0.98,11);
+% binsEdge=[0.73,0.78,0.83,0.88,0.93,0.98,1]; % for difficulty
+binsEdge=[0.78,0.83,0.88,0.93,0.98,1]; % for difficulty
+name_d=[0.2,0.15,0.1,0.05,0.01];
+
+for nH=0:nnH-1
+    figure(50+nH+1);clf;
+    set(gcf,'Position',[1 1 1200 600])
+%     sgtitle(['Horizon=',num2str(nH)])
+    tt = tiledlayout(num_subj,5,'Padding','none','TileSpacing','tight');
+    
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode
+            dif=TrialDiff{nH+1,sub}(t:nH+1:end);
+            rt=RT{nH+1,sub}(t:nH+1:end);
+            mt=MT{nH+1,sub}(t:nH+1:end);
+            % remove error trials
+            et=err_trial{nH+1,sub}(t:nH+1:end);
+            nonerr=find(~et);
+            dif=dif(nonerr);
+            rt=rt(nonerr);
+            mt=mt(nonerr);
+
+            rt_sections=nan(length(binsEdge)-1,4);
+            for i=1:length(binsEdge)-1
+                temp=find(dif>binsEdge(i) & dif<=binsEdge(i+1));
+                temp1=rt(temp);
+                temp2=mt(temp);
+                rt_sections(i,:)=[nanmean(temp1) nanstd(temp1) nanmean(temp2) nanstd(temp2)];
+            end
+
+            for d=1:length(binsEdge)-1
+%                 subplot(num_subj,length(binsEdge)-1,(sub-1)*(length(binsEdge)-1)+d)
+                nexttile((sub-1)*(length(binsEdge)-1)+d)
+                ax=gca;
+            %     plot(dif,rt,'rx')
+                hold on
+            %     plot(binsEdge,200,'ko')
+    %             errorbar(binsEdge(2:end)-(1+t*0.5)*(binsEdge(2)-binsEdge(1))/2,rt_sections(:,1),rt_sections(:,2)/2,'o','Color',col(t,:))
+                if isnan(rt_sections(d,1))
+                    plot(1,1)
+                else
+                    errorbar(rt_sections(d,1),rt_sections(d,3),rt_sections(d,2)/2,rt_sections(d,2)/2,rt_sections(d,4)/2,rt_sections(d,4)/2,...
+                        'o','Color',col(t,:),'DisplayName',['T',num2str(t)])
+                end
+                ylim([200 800])
+                xlim([0 1200])
+                xticks([0,500,1000])
+                yticks([200,600])
+%                 xlabel('RT')
+                box on; ax.FontSize=font_dim;
+                if sub==1&&nH>0&&d==1
+                    legend('Location','northeast','FontSize',font_dim-5)
+                end
+                if sub==1
+                    title(['d=',num2str(name_d(d))])
+                end
+                if d==1
+%                     ylabel('MT')
+                else
+                    yticks([])
+                end
+                if d==length(binsEdge)-1
+                    yyaxis right
+                    ylabel(subj_name{sub},'Color','r');
+                    yticks([])
+                end
+                if sub~=num_subj
+                    xticks([])
+                    xlabel([])
+                end
+                
+            end
+        end
+    end
+    
+    xlabel(tt,'Reaction time','Interpreter','latex','FontSize',font_dim+2)
+    ylabel(tt,'Movement time','Interpreter','latex','FontSize',font_dim+2)
+
+end
+
+%% SAT: MT vs PV
+binsEdgeMT=linspace(200,800,11);
+
+figure(5);clf;
+set(gcf,'Position',[1 1 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode
+            dif=MT{nH+1,sub}(t:nH+1:end);
+            rt=peakVel{nH+1,sub}(t:nH+1:end);
+            % remove error trials
+            et=err_trial{nH+1,sub}(t:nH+1:end);
+            nonerr=find(~et);
+            dif=dif(nonerr);
+            rt=rt(nonerr);
+
+            rt_sections=nan(length(binsEdgeMT)-1,2);
+            for i=1:length(binsEdgeMT)-1
+                temp=find(dif>binsEdgeMT(i) & dif<=binsEdgeMT(i+1));
+                temp1=rt(temp);
+                rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+            end
+
+%             subplot(2,3,sub)    
+            nexttile(sub+num_subj*nH)
+            ax=gca;
+            hold on
+            errorbar(binsEdgeMT(2:end)-(1+t*0.5)*(binsEdgeMT(2)-binsEdgeMT(1))/2,rt_sections(:,1),rt_sections(:,2)/2,...
+                'Marker',mark{t},'LineStyle','none','Color',col(t,:),'DisplayName',['T.',num2str(t)])
+        end
+
+        xlim([100 binsEdgeMT(end)])
+        ylim([200 3500])
+        if sub~=1 % && sub~=5
+            yticks([])
+        end
+        
+        box on; ax.FontSize=font_dim;
+        if sub==1&&nH>0
+            lgn=legend('Location','northwest');
+            lgn.FontSize=font_dim-5;
+    %             lgn.Position(1)=lgn.Position(1)+0.2;
+        end
+        if nH==0
+            title(subj_name{sub})
+        end
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks(200:200:600)
+        end
+    end
+    
+    if sub==num_subj
+        yyaxis right
+        ylabel(['nH=',num2str(nH)],'Color','r');
+        yticks([])
+    end
+end
+xlabel(tl,'Movement Time','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'Peak Velocity','Interpreter','latex','FontSize',font_dim+2)
+
+%% Reaction time
+
+figure(nH+60);clf;
+set(gcf,'Position',[1 1 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode     
+            rt=RT{nH+1,sub}(t:nH+1:end);
+            % remove error trials
+            et=err_trial{nH+1,sub}(t:nH+1:end);
+            nonerr=find(~et);
+            rt=rt(nonerr);
+            
+%             subplot(2,3,sub)
+            nexttile(sub+num_subj*nH)
+            ax=gca;
+            hold on 
+            plot(nonerr,rt,'Marker',mark{t},'LineStyle','none','Color',col(t,:),'DisplayName',['$T_E$',num2str(t)])
+%             plot(find(et),rt(et>0),'kx')
+        end
+        h=yline(0,'k--');
+        h.Annotation.LegendInformation.IconDisplayStyle = 'off';
+        h=yline(500,'k--');
+        h.Annotation.LegendInformation.IconDisplayStyle = 'off';
+        xlim([-4 105])
+        ylim([-300 2000])
+        yticks(0:500:1500)
+        if sub~=1 % && sub~=5
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([1,50,100])
+        end
+        box on; ax.FontSize=font_dim;
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];
+        end
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+    end
+    if sub==num_subj
+        colororder({'k','k'})
+        yyaxis right
+        ylabel(['nH=',num2str(nH)]);
+        yticks([])
+    end
+end
+xlabel(tl,'\bf Episode','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'{\bf Reaction time (ms)}','Interpreter','latex','FontSize',font_dim+2)
+
+pause(0.5)
+lgn.Position(1)=lgn.Position(1)+0.004;
+lgn.Position(2)=lgn.Position(2)+0.008;
+
+if salva
+    name=['./plots/Fig_RTvsTrial'];
+    print(gcf,name,'-dpng')
+end
+
+
+%% Reaction time - histo
+
+figure(1);clf;
+set(gcf,'Position',[1 1 1200 400])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for ind_sub=1:num_subj
+        sub=ind_sub;
+        for t=1:nH+1 % trial within episode     
+            rt=RT{nH+1,sub}(t:nH+1:end);
+            % remove error trials
+            et=err_trial{nH+1,sub}(t:nH+1:end);
+            nonerr=find(~et);
+            rt=rt(nonerr);
+            
+            nexttile(ind_sub+num_subj*nH)
+            ax=gca;
+            hold on
+            [f,xi] = ksdensity(rt,'Support',[-500 3000]);
+            plot(xi,f,'LineWidth',2,'Color',col(t,:),'DisplayName',['$T_E$',num2str(t)])
+        end
+        h=xline(0,'k--');
+        h.Annotation.LegendInformation.IconDisplayStyle = 'off';
+        h=xline(500,'k--');
+        h.Annotation.LegendInformation.IconDisplayStyle = 'off';
+        xlim([-500 2000])
+        ylim([0 0.0038])
+        if sub==1
+            yticks([0,0.003])
+            ax.YAxis.Exponent = 0;
+        else
+            yticks([])
+        end
+        
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([-500,500,1500])
+        end
+        box on; ax.FontSize=font_dim;
+        if ind_sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+    end
+    if sub==num_subj
+        colororder({'k','k'})
+        yyaxis right
+        ylabel(['nH=',num2str(nH)]);
+        yticks([])
+    end
+end
+xlabel(tl,'{\bf Reaction time (ms)}','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'\bf Density','Interpreter','latex','FontSize',font_dim+2)
+
+pause(0.5)
+lgn.Position(1)=lgn.Position(1)+0.004;
+lgn.Position(2)=lgn.Position(2)+0.008;
+
+if salva
+    name=['./plots/Fig_RT_hist'];
+    print(gcf,name,'-dpng')
+end
+
+%% RT vs Difficulty
+
+binsEdge=[0.78,0.83,0.88,0.93,0.98,1]; % for difficulty
+
+figure(34);clf;
+set(gcf,'Position',[1 1 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','tight');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode
+            dif=TrialDiff{nH+1,sub}(t:nH+1:end);
+            rt=RT{nH+1,sub}(t:nH+1:end);
+            % remove error trials
+            et=err_trial{nH+1,sub}(t:nH+1:end);
+            nonerr=find(~et);
+            dif=dif(nonerr);
+            rt=rt(nonerr);
+
+            rt_sections=nan(length(binsEdge)-1,2);
+            for i=1:length(binsEdge)-1
+                temp=find(dif>binsEdge(i) & dif<=binsEdge(i+1));
+                temp1=rt(temp);
+                rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+            end
+
+%             subplot(2,3,sub)   
+            nexttile(sub+num_subj*nH)
+            ax=gca;
+        %     plot(dif,rt,'rx')
+            hold on
+        %     plot(binsEdge,200,'ko')
+            errorbar(binsEdge(2:end)-(1+t*0.5)*(binsEdge(2)-binsEdge(1))/2,rt_sections(:,1),rt_sections(:,2)/2,...
+                'o','Color',col(t,:),'DisplayName',['$T_E$',num2str(t)],'LineWidth',1.5)
+        end
+        xlim([0.75 1])
+        ylim([-200 1400])
+        box on; ax.FontSize=font_dim;
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast','FontSize',font_dim-5);
+            lgn.ItemTokenSize=[10,18];
+        end
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([0.8,0.9])
+        end
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=1
+            yticks([])
+        end
+    end
+    if sub==num_subj
+        colororder({'k','k'})
+        yyaxis right
+        ylabel(['nH=',num2str(nH)]);
+        yticks([])
+    end
+end
+xlabel(tl,'\bf Difficulty','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'{\bf Reaction time (ms)}','Interpreter','latex','FontSize',font_dim+2)
+
+pause(0.5)
+lgn.Position(1)=lgn.Position(1)+0.004;
+lgn.Position(2)=lgn.Position(2)+0.008;
+
+if salva
+    name=['./plots/Fig_RTvsDiff'];
+    print(gcf,name,'-dpng')
+end
+
+%% RT vs Performance
+% 
+% binsEdge={[-0.1,0.5,1.1]; % for nH=0
+%         [-0.1,0.2,0.5,0.8,1.1]; % for nH=1
+%         [-0.1,0.2,0.5,0.8,1.1]}; % for nH=2
+%     
+binsEdge={[-0.1,0.5,1.1]; % for nH=0
+        [-0.1,0.5,1.1]; % for nH=1
+        [-0.1,0.5,1.1]}; % for nH=2
+    
+figure(35);clf;
+set(gcf,'Position',[1 1 1000 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','tight');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        t=nH+1; % trial within episode
+        dif=Performance{nH+1,sub}(t:nH+1:end);
+        rt=zeros(size(RT{nH+1,sub}(t:nH+1:end)));
+        et=zeros(size(RT{nH+1,sub}(t:nH+1:end)));
+        for t1=1:nH+1
+            rt=rt+RT{nH+1,sub}(t1:nH+1:end);
+            et=et+err_trial{nH+1,sub}(t1:nH+1:end);
+        end
+        rt=rt/(nH+1);
+        % remove error trials
+        nonerr=find(~et);
+        dif=dif(nonerr);
+        rt=rt(nonerr);
+
+        rt_sections=nan(length(binsEdge{nH+1})-1,2);
+        for i=1:length(binsEdge{nH+1})-1
+            temp=find(dif>binsEdge{nH+1}(i) & dif<=binsEdge{nH+1}(i+1));
+            temp1=rt(temp);
+            rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+        end
+        
+        nexttile(sub+num_subj*nH)
+        ax=gca;
+        hold on
+        errorbar((binsEdge{nH+1}(2:end)+binsEdge{nH+1}(1:end-1))/2,rt_sections(:,1),rt_sections(:,2)/2,...
+            'o','Color',col(t,:),'DisplayName',['$T_E$',num2str(t)],'LineWidth',1.5)
+
+        xlim([-0.5 1.5])
+        ylim([-200 1400])
+        box on; ax.FontSize=font_dim;
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([0.1,0.9])
+            xticklabels({'Low','High'})
+        end
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=1
+            yticks([])
+        end
+    end
+    if sub==num_subj
+        colororder({'k','k'})
+        yyaxis right
+        ylabel(['nH=',num2str(nH)]);
+        yticks([])
+    end
+end
+xlabel(tl,'\bf Performance','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'{\bf Reaction time (ms)}','Interpreter','latex','FontSize',font_dim+2)
+
+
+if salva
+    name=['./plots/Fig_RTvsPerf'];
+    print(gcf,name,'-dpng')
+end
+
+%% RT vs Performance - v2
+% 
+% binsEdge={[-0.1,0.5,1.1]; % for nH=0
+%         [-0.1,0.2,0.5,0.8,1.1]; % for nH=1
+%         [-0.1,0.2,0.5,0.8,1.1]}; % for nH=2
+%     
+binsEdge={[-0.1,0.5,1.1]; % for nH=0
+        [-0.1,0.5,1.1]; % for nH=1
+        [-0.1,0.5,1.1]}; % for nH=2
+    
+figure(36);clf;
+set(gcf,'Position',[1 1 1000 300])
+tl = tiledlayout(1,num_subj,'Padding','compact','TileSpacing','tight');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        t=nH+1; % trial within episode
+        dif=Performance{nH+1,sub}(t:nH+1:end);
+        rt=zeros(size(RT{nH+1,sub}(t:nH+1:end)));
+        et=zeros(size(RT{nH+1,sub}(t:nH+1:end)));
+        for t1=1:nH+1
+            rt=rt+RT{nH+1,sub}(t1:nH+1:end);
+            et=et+err_trial{nH+1,sub}(t1:nH+1:end);
+        end
+        rt=rt/(nH+1);
+        % remove error trials
+        nonerr=find(~et);
+        dif=dif(nonerr);
+        rt=rt(nonerr);
+
+        rt_sections=nan(length(binsEdge{nH+1})-1,2);
+        for i=1:length(binsEdge{nH+1})-1
+            temp=find(dif>binsEdge{nH+1}(i) & dif<=binsEdge{nH+1}(i+1));
+            temp1=rt(temp);
+            rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+        end
+        
+        nexttile(sub)
+        ax=gca;
+        hold on
+        errorbar(nH/10+(binsEdge{nH+1}(2:end)+binsEdge{nH+1}(1:end-1))/2,rt_sections(:,1),rt_sections(:,2)/2,...
+            'o','Color',col(t,:),'DisplayName',['$n_H$ ',num2str(nH)],'LineWidth',1.5)
+%         xline(0.5,'LineStyle','--')
+        xlim([-0.1 1.3])
+        ylim([-200 1400])
+        box on; ax.FontSize=font_dim;
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([0.1,0.9])
+            xticklabels({'Low','High'})
+        end
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=1
+            yticks([])
+        end
+        if sub==1
+            lgn=legend('Location','southwest','FontSize',font_dim-2);
+            lgn.ItemTokenSize=[10,18];
+        end
+    end
+end
+xlabel(tl,'\bf Performance','Interpreter','latex','FontSize',font_dim+2)
+ylabel(tl,'{\bf Reaction time (ms)}','Interpreter','latex','FontSize',font_dim+2)
+
+% 
+% pause(0.5)
+% lgn.Position(1)=lgn.Position(1)+0.004;
+% lgn.Position(2)=lgn.Position(2)+0.008;
+
+if salva
+    name=['./plots/Fig_RTvsPerf_v2'];
+    print(gcf,name,'-dpng')
+end
+
+%% Movement time
+figure(nH+20);clf;
+set(gcf,'Position',[1 1 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode            
+            rt=MT{nH+1,sub}(t:nH+1:end);
+            % remove error trials
+            et=err_trial{nH+1,sub}(t:nH+1:end);
+            nonerr=find(~et);
+            rt=rt(nonerr);
+
+            
+%             subplot(2,3,sub)
+            nexttile(sub+num_subj*nH)
+            ax=gca;
+            hold on 
+            plot(nonerr,rt,'Marker',mark{t},'LineStyle','none','Color',col(t,:),'DisplayName',['T.',num2str(t)])
+%             plot(find(et),rt(et>0),'kx')            
+        end
+        ylim([0 1500])
+        if sub~=1 % && sub~=5
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([50,100])
+        end
+        if nH==0
+            title(subj_name{sub})
+        end
+        
+        box on; ax.FontSize=font_dim;
+        if sub==1&&nH>0
+            lgn=legend('Location','northwest');
+            lgn.FontSize=font_dim-4;
+%             lgn.Position(1)=lgn.Position(1)+0.2;
+        end
+    end
+    if sub==num_subj
+        yyaxis right
+        ylabel(['nH=',num2str(nH)],'Color','r');
+        yticks([])
+    end
+    xlabel(tl,'Episode','Interpreter','latex','FontSize',font_dim+2)
+    ylabel(tl,'Movement time','Interpreter','latex','FontSize',font_dim+2)
+end
+if salva
+    name=['Fig_MTvsTrial'];
+    print(gcf,name,'-dpng')
+end
+
+%% Peak velocity
+figure(10);clf;
+set(gcf,'Position',[1 1 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','tight');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode     
+            rt=peakVel{nH+1,sub}(t:nH+1:end);
+            % remove error trials
+            et=err_trial{nH+1,sub}(t:nH+1:end);
+            nonerr=find(~et);
+            rt=rt(nonerr);
+
+%             subplot(2,3,sub)
+            nexttile(sub+num_subj*nH)
+            ax=gca;
+            hold on 
+            plot(nonerr,rt,'Marker',mark{t},'LineStyle','none','Color',col(t,:),'DisplayName',['T.',num2str(t)])
+%             plot(find(et),rt(et>0),'kx')
+        end
+        ylim([0 4000])
+        if sub~=1 %&& sub~=5
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([50,100])
+        end
+        if nH==0
+            title(subj_name{sub})
+        end
+
+        box on; ax.FontSize=font_dim;
+        if sub==1&&nH>0
+            lgn=legend('Location','northwest');
+            lgn.FontSize=font_dim-4;
+%             lgn.Position(1)=lgn.Position(1)+0.2;
+        end 
+    end
+    if sub==num_subj
+        yyaxis right
+        ylabel(['nH=',num2str(nH)],'Color','r');
+        yticks([])
+    end
+    xlabel(tl,'Episode','Interpreter','latex','FontSize',font_dim+2)
+    ylabel(tl,'Peak velocity','Interpreter','latex','FontSize',font_dim+2)
+end
+if salva
+    name=['Fig_PVvsTrial'];
+    print(gcf,name,'-dpng')
+end
+
+%% time to Peak Velocity from movement onset 
+
+for nH=0:nnH-1
+    figure(nH+30);clf;
+    sgtitle(['Horizon=',num2str(nH)])
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode     
+            rt=tPeakVel{nH+1,sub}(t:nH+1:end);
+            et=err_trial{nH+1,sub}(t:nH+1:end);            
+
+            subplot(2,3,sub)
+            hold on 
+            plot(rt,'o','Color',col(t,:))
+%             plot(find(et),rt(et>0),'kx')
+            
+            xlabel('Trial')
+            ylabel('Time to Peak Velocity')
+            ylim([0 600])
+            if sub==1&&nH>0
+                legend({'Tr 1','Tr 2'},'Location','northwest')
+            end
+            title(subj_name{sub})
+        end
+    end
+    if salva
+        name=['Fig_tPVvsTrial_H',num2str(nH)];
+        print(gcf,name,'-dpng')
+    end
+end
+
+
+%% Movement Time vs Reward
+binsRew=linspace(0.05,1,10);
+
+for nH=0:nnH-1
+    figure(nH+10);clf;
+    sgtitle(['Horizon=',num2str(nH)])
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode
+%             rew=Reward{nH+1,sub}(t:nH+1:end);
+            ind=t:nH+1:length(choice{nH+1,sub});
+            ind0=find(choice{nH+1,sub}(ind));
+            ind=ind(ind0);
+            rew=Stimuli{nH+1,sub}(ind,:);
+            ind2=(choice{nH+1,sub}(ind)+1)/2+1;
+            test=zeros(size(rew));
+            indA=find(ind2==1);
+            test(indA,1)=1;
+            indA=find(ind2==2);
+            test(indA,2)=1;
+            test2=test.*rew;
+            rew=sum(test2,2);
+            
+            rt=MT{nH+1,sub}(ind);
+
+            rt_sections=nan(length(binsRew)-1,2);
+            for i=1:length(binsRew)-1
+                temp=find(rew>binsRew(i) & rew<=binsRew(i+1));
+                temp1=rt(temp);
+                rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+            end
+
+            subplot(2,3,sub)
+        %     plot(dif,rt,'rx')
+            hold on
+        %     plot(binsEdge,200,'ko')
+            errorbar(binsRew(2:end)-(1+t*0.5)*(binsRew(2)-binsRew(1))/2,rt_sections(:,1),rt_sections(:,2)/2,'o','Color',col(t,:))
+            xlim([binsRew(1) binsRew(end)])
+            ylim([200 800])
+            xlabel('Reward')
+            ylabel('Movement Time')
+            if sub==1&&nH>0
+                legend({'Tr 1','Tr 2'},'Location','northwest')
+            end
+            title(subj_name{sub})
+        end
+    end
+end
+
+%% Movement Time vs Reward ----- V2
+% binsEdge=linspace(0.05,1,8);
+diffEdge=[0.94 1]; % 0.59,0.68,0.73,0.86,0.95
+
+
+for nH=0:nnH-1
+    figure(nH+1);clf;
+    sgtitle(['Horizon=',num2str(nH)])
+    for sub=1:num_subj
+        for t=1:nH+1 % trial within episode
+%             rew=Reward{nH+1,sub}(t:nH+1:end);
+            ind=t:nH+1:length(choice{nH+1,sub});
+            ind0=find(choice{nH+1,sub}(ind));
+            ind=ind(ind0);
+            rew=Stimuli{nH+1,sub}(ind,:);
+            ind2=(choice{nH+1,sub}(ind)+1)/2+1;
+            test=zeros(size(rew));
+            indA=find(ind2==1);
+            test(indA,1)=1;
+            indA=find(ind2==2);
+            test(indA,2)=1;
+            test2=test.*rew;
+            rew=sum(test2,2);
+            
+            dif=TrialDiff{nH+1,sub}(ind);
+            mt=MT{nH+1,sub}(ind);
+            
+            dif_r=find(dif>diffEdge(1) & dif<diffEdge(2));
+            rew=rew(dif_r);
+            mt=mt(dif_r);
+
+            rt_sections=nan(length(binsRew)-1,2);
+            for i=1:length(binsRew)-1
+                temp=find(rew>binsRew(i) & rew<=binsRew(i+1));
+                temp1=mt(temp);
+                rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+            end
+
+            subplot(2,3,sub)
+        %     plot(dif,rt,'rx')
+            hold on
+        %     plot(binsEdge,200,'ko')
+            errorbar(binsRew(2:end)-(1+t*0.5)*(binsRew(2)-binsRew(1))/2,rt_sections(:,1),rt_sections(:,2)/2,'o','Color',col(t,:))
+            xlim([binsRew(1) binsRew(end)])
+            ylim([100 800])
+            xlabel('Reward')
+            ylabel('Movement Time')
+            if sub==1&&nH>0
+                legend({'Tr 1','Tr 2'},'Location','northwest')
+            end
+            title(subj_name{sub})
+        end
+    end
+    if salva
+        name=['Fig_MTvsReward_H',num2str(nH)];
+        print(gcf,name,'-dpng')
+    end
+end
+
+%% Difficulty vs Reward
+% binsEdge=linspace(0.05,1,8);
+
+for nH=0:nnH-1
+    figure(nH+1);clf;
+    sgtitle(['Horizon=',num2str(nH)])
+    for sub=1:num_subj
+        for t=nH+1 % trial within episode
+            rew=Performance{nH+1,sub}(t:nH+1:end);
+            dif=TrialDiff{nH+1,sub}(t:nH+1:end);
+
+            rt_sections=nan(length(binsEdge)-1,2);
+            for i=1:length(binsEdge)-1
+                temp=find(dif>binsEdge(i) & dif<=binsEdge(i+1));
+                temp1=rew(temp);
+                rt_sections(i,:)=[nanmean(temp1) nanstd(temp1)];
+            end
+
+            subplot(2,3,sub)
+        %     plot(dif,rt,'rx')
+            hold on
+        %     plot(binsEdge,200,'ko')
+            errorbar(binsEdge(2:end)-(1+t*0.5)*(binsEdge(2)-binsEdge(1))/2,rt_sections(:,1),rt_sections(:,2)/2,'o','Color',col(t,:))
+            xlim([binsEdge(1) 1])
+            ylim([0.5 1])
+            xlabel('Difficulty')
+            ylabel('Reward')
+%             if sub==1&&nH>0
+%                 legend({'Tr 1','Tr 2'},'Location','northwest')
+%             end
+            title(subj_name{sub})
+        end
+    end
+end
+
+%% Movement time - right/left
+% 
+% for nH=0:nnH-1
+%     for t=1:nH+1 % trial within episode
+%         figure(nH*10+t);clf;
+%         sgtitle(['Horizon=',num2str(nH),', Trial=',num2str(t)])
+%         for j=1:4
+%             mt=MT{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             et=err_trial{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             lr=choice{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             left=find(lr<0);
+%             right=find(lr>0);
+%             [fl,xl] = ksdensity(mt(left));
+%             [fr,xr] = ksdensity(mt(right));
+% 
+%             subplot(2,2,j)
+%             hold on 
+%             
+%             plot(xl,fl,'Color',col(1,:))
+%             plot(xr,fr,'Color',col(2,:))
+% %             plot(mt(left),'o','Color',col(1,:))
+% %             plot(mt(right),'+','Color',col(2,:))
+%             xlim([0 1000])
+% %             xlabel('Trial')
+%             xlabel('Movement Time')
+%             if j==1
+%                 legend({'Left','Right'},'Location','northeast')
+%             end
+%             title(subj_name{j})
+%         end
+%     end
+% %     name=['Fig_MT_lr',num2str(nH)];
+% %     print(gcf,name,'-dpng')
+% end
+%% Reaction time - right/left
+% 
+% for nH=0:nnH-1
+%     for t=1:nH+1 % trial within episode
+%         figure(nH*10+t);clf;
+%         sgtitle(['Horizon=',num2str(nH),', Trial=',num2str(t)])
+%         for j=1:4
+%             mt=MT{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             rt=RT{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             et=err_trial{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             lr=choice{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             left=find(lr<0);
+%             right=find(lr>0);
+%             [fl,xl] = ksdensity(rt(left));
+%             [fr,xr] = ksdensity(rt(right));
+% 
+%             subplot(2,2,j)
+%             hold on 
+%             
+%             plot(xl,fl,'Color',col(1,:))
+%             plot(xr,fr,'Color',col(2,:))
+% %             plot(mt(left),'o','Color',col(1,:))
+% %             plot(mt(right),'+','Color',col(2,:))
+%             xlim([0 2000])
+% %             xlabel('Trial')
+%             xlabel('Reaction Time')
+%             if j==1
+%                 legend({'Left','Right'},'Location','northeast')
+%             end
+%             title(subj_name{j})
+%         end
+%     end
+% %     name=['Fig_RT_lr',num2str(nH)];
+% %     print(gcf,name,'-dpng')
+% end
+% 
+%% Difficulty - right/left
+% 
+% for nH=0:nnH-1
+%     for t=1:nH+1 % trial within episode
+%         figure(nH*10+t);clf;
+%         sgtitle(['Horizon=',num2str(nH),', Trial=',num2str(t)])
+%         for j=1:4
+%             dif=TrialDiff{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             mt=MT{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             rt=RT{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             et=err_trial{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             lr=choice{nH+1}((nH+1)*100*(j-1)+t:nH+1:(nH+1)*100*j);
+%             left=find(lr<0);
+%             right=find(lr>0);
+%             [fl,xl] = ksdensity(dif(left));
+%             [fr,xr] = ksdensity(dif(right));
+% 
+%             subplot(2,2,j)
+%             hold on 
+%             
+%             plot(xl,fl,'Color',col(1,:))
+%             plot(xr,fr,'Color',col(2,:))
+% %             plot(mt(left),'o','Color',col(1,:))
+% %             plot(mt(right),'+','Color',col(2,:))
+%             xlim([0 1])
+% %             xlabel('Trial')
+%             xlabel('Difficulty')
+%             if j==1
+%                 legend({'Left','Right'},'Location','northeast')
+%             end
+%             title(subj_name{j})
+%         end
+%     end
+% %     name=['Fig_RT_lr',num2str(nH)];
+% %     print(gcf,name,'-dpng')
+% end
+
+%% 
+% ########### OCULOMETRY #################
+
+%%
+%% Escluding first 5 participants and the guy with feedback
+
+clearvars; close all;
+salva=0;
+load('./matfiles/newSubj_220330.mat')
+
+% % include only some participants
+% participantsToInclude=[17:num_subj];
+% num_subj=length(participantsToInclude);
+% block_withinH=block_withinH(:,participantsToInclude);
+% choice=choice(:,participantsToInclude);
+% decision=decision(:,participantsToInclude);
+% err_trial=err_trial(:,participantsToInclude);
+% eventsTime=eventsTime(:,participantsToInclude);
+% MT=MT(:,participantsToInclude);
+% mvOff=mvOff(:,participantsToInclude);
+% mvOn=mvOn(:,participantsToInclude);
+% OrderTask=OrderTask(:,participantsToInclude);
+% peakVel=peakVel(:,participantsToInclude);
+% Performance=Performance(:,participantsToInclude);
+% RT=RT(:,participantsToInclude);
+% Stimuli=Stimuli(:,participantsToInclude);
+% tPeakVel=tPeakVel(:,participantsToInclude);
+% TrialDiff=TrialDiff(:,participantsToInclude);
+% eLp=eLp(:,participantsToInclude);
+% eLx=eLx(:,participantsToInclude);
+% eLy=eLy(:,participantsToInclude);
+% eRp=eRp(:,participantsToInclude);
+% eRx=eRx(:,participantsToInclude);
+% eRy=eRy(:,participantsToInclude);
+% eTime=eTime(:,participantsToInclude);
+% eyesX=eyesX(:,participantsToInclude);
+% eyesY=eyesY(:,participantsToInclude);
+% eyesP=eyesP(:,participantsToInclude);
+% allEvents=allEvents(:,participantsToInclude);
+
+
+% set Performance to zero if error trial
+for sub=1:num_subj
+    for nH=0:nnH-1 
+%         extra=mod(length(Performance{nH+1,sub}),nH+1);
+%         Performance{nH+1,sub}=Performance{nH+1,sub}(1:end-extra);
+%         errTr=err_trial{nH+1,sub}(1:end-extra);
+        errTr=err_trial{nH+1,sub};
+        ind1=reshape(errTr,nH+1,[]);
+        ind1=sum(ind1);
+        errTr=find(ind1); % index of the episode with an error
+        errTr=errTr*(nH+1); % index of the last trial w.E
+        Performance{nH+1,sub}(errTr)=0;
+    end
+end
+
+
+subj_name=split(sprintf('P.%d ',1:num_subj));
+subj_name=subj_name(1:num_subj);
+
+% color for trial within episode
+col=[
+    0.12      0.52      0.22;   % green
+    0         0.35      0.70;   % blue
+    0.81      0.16      0.16;   % red
+    ]; 
+% color for DIFFICULTY
+col_d=[
+    0         0.41      0.36;   % acquamarina (RP)
+    0.30      0.74      0.93;   % light blue (not RP all)
+    0.76      0.57      0.87;   % light purple (Pass)
+    0.45      0.18         0;   % brown (F)
+    0.70      0.48      0.32;   % light brown (not F)
+    0.49      0.18      0.55;   % purple (Act)
+                            ];
+font_dim=16;
+mark={'o','^','+'};
+
+folderSave='./plots/';
+set(0,'defaultLegendInterpreter','latex')
+set(0,'defaultAxesTickLabelInterpreter','latex')
+set(0,'defaultTextInterpreter','latex')
+
+%% who learnt the strategy?
+understand=[
+    1,1,1; % subj 80
+    1,1,1;
+    1,1,1;
+    1,1,0;
+    1,1,1;
+    1,1,1;
+    0,0,0;
+    1,1,1;
+    1,1,1;
+    1,1,1;
+    1,1,1; % subj 90
+    1,1,1;
+    1,1,1;
+    1,0,0;
+    1,0,0;
+];
+%% when do they learn?
+th=0.92;
+th2=0.9;
+time_learn=cell(nnH,num_subj);
+time_learn2=cell(nnH,num_subj);
+for sub=1:num_subj
+    for nH=0:nnH-1
+        % remove error trials from participant
+        perf=Performance{nH+1,sub};
+        errTr=err_trial{nH+1,sub};
+        ind1=reshape(errTr,nH+1,[]);
+        ind1=sum(ind1,1);
+        errTr=find(ind1);
+        errTr=errTr*(nH+1);
+        perf(errTr)=nan; % set performance for error trial to zero
+        noErrTr=find(ind1<0.1);
+        noErrTrIdx=noErrTr*(nH+1);  % index of episodes
+        % select easy trials
+        ind_easy=find(TrialDiff{nH+1,sub}<0.97);
+        ind_easyNoErr=intersect(noErrTrIdx,ind_easy);
+        perf_easy=perf(ind_easyNoErr);
+        ind_easyNoErr=ind_easyNoErr/(nH+1);
+        % plot(ind_easyNoErr,perf_easy,'gx')
+        perf_t=nan(length(perf_easy),1);
+        temp1=nan(length(perf_easy),1);
+        for t=1:length(perf_easy)-10
+            perf_t(t)=mean(perf_easy(t:end),'omitnan');
+            temp1(t)=mean(perf_easy(t:t+10));
+        end
+        temp=find(perf_t>th,1,'first');
+        time_learn{nH+1,sub}=ind_easyNoErr(temp);
+        temp=find(temp1>th2,1,'first');
+        time_learn2{nH+1,sub}=ind_easyNoErr(temp);
+    end
+end
+
+%% Time interval of interest
+% = 1 : 1st stimulus presentation
+% = 2 : last stimulus disappears
+% = 3 : both stimuli appear
+TimeInt_go=1;
+% = 1 : mv Onset
+% = 2 : mv Offset
+% = 3 : target selection
+TimeInt_stop=1;
+
+TimeInt_go_label={'1st-Stim','Last-Stim','Both-Stim'};
+TimeInt_stop_label={'MvOn','MvOff','Target-sel'};
+TimeInt_go_label=TimeInt_go_label{TimeInt_go};
+TimeInt_stop_label=TimeInt_stop_label{TimeInt_stop};
+
+
+%% saccades - at least 30ms, cross 0 
+
+borderSaccade=150;
+binsEdgeDiff=[0.77,0.82,0.87,0.92,0.97,1.2];
+binsEdgeName={'0.8','0.85','0.9','0.95','0.99'};
+
+num_sacc=cell(size(eLx));
+num_saccDiff=cell(size(eLx));
+num_saccDiffnTe=cell(size(eLx));
+for sub=1:num_subj
+    for nH=0:nnH-1
+%         goT=eventsTime{nH+1,sub}(:,4); % go
+        goT=eventsTime{nH+1,sub}(:,3);
+        % goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)); % 1st stim
+        stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1)+100; % movement onset + 100ms
+
+        num_sacc{nH+1,sub}=nan(length(err_trial{nH+1,sub}),2);
+
+for n_t=1:length(err_trial{nH+1,sub})
+    ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t))); % beforeGo - mov.Onset
+    if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+        continue
+    end
+    % left
+    t_l=find(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade); % index time
+    tt_l=eTime{nH+1,sub}(ind_int(t_l),n_t); % time
+    ind_lj=find(diff(tt_l)>30); % find clusters
+    if isempty(tt_l)
+        ind_lj2=[];
+    else
+        ind_ljNew=[];
+        if ~isempty(ind_lj)
+            l=1;
+            for ii=1:length(ind_lj) % what is in the gaps
+                ind_li=(ind_int(t_l(ind_lj(ii)))+1):(ind_int(t_l(ind_lj(ii)+1))-1);
+                overCross=sum(eyesX{nH+1,sub}(ind_li,n_t)>0); % do I cross over?
+                if overCross~=0
+                    ind_ljNew(l)=ind_lj(ii);
+                    l=l+1;
+                end
+            end
+        end
+        ind_lj2=nan(length(ind_ljNew)+1,2);
+        if isempty(ind_ljNew)
+            ind_lj2=[tt_l(1),tt_l(end)];
+        else
+            for ii=1:length(ind_ljNew)+1 % adjust possible border effect
+                if ii==1
+                    ind_lj2(ii,:)=[tt_l(1),tt_l(ind_ljNew(1))];
+                elseif ii==length(ind_ljNew)+1
+                    ind_lj2(ii,:)=[tt_l(ind_ljNew(ii-1)+1),tt_l(end)];
+                else
+                    ind_lj2(ii,:)=[tt_l(ind_ljNew(ii-1)+1),tt_l(ind_ljNew(ii))];
+                end
+            end    
+        end
+    end
+
+    % right
+    t_r=find(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade); % index time
+    tt_r=eTime{nH+1,sub}(ind_int(t_r),n_t); % time
+    ind_rj=find(diff(tt_r)>30); % find clusters
+    if isempty(tt_r)
+        ind_rj2=[];
+    else
+        ind_rjNew=[];
+        if ~isempty(ind_rj)
+            l=1;
+            for ii=1:length(ind_rj) % what is in the gaps
+                ind_ri=(ind_int(t_r(ind_rj(ii)))+1):(ind_int(t_r(ind_rj(ii)+1))-1);
+                overCross=sum(eyesX{nH+1,sub}(ind_ri,n_t)<0); % do I cross over?
+                if overCross~=0
+                    ind_rjNew(l)=ind_rj(ii);
+                    l=l+1;
+                end
+            end
+        end
+        ind_rj2=nan(length(ind_rjNew)+1,2);
+        if isempty(ind_rjNew)
+            ind_rj2=[tt_r(1),tt_r(end)];
+        else
+            for ii=1:length(ind_rjNew)+1 % adjust possible border effect
+                if ii==1
+                    ind_rj2(ii,:)=[tt_r(1),tt_r(ind_rjNew(1))];
+                elseif ii==length(ind_rjNew)+1
+                    ind_rj2(ii,:)=[tt_r(ind_rjNew(ii-1)+1),tt_r(end)];
+                else
+                    ind_rj2(ii,:)=[tt_r(ind_rjNew(ii-1)+1),tt_r(ind_rjNew(ii))];
+                end
+            end    
+        end
+    end
+    % calculate number of saccade
+    num_sacc{nH+1,sub}(n_t,:)=[sum(diff(ind_lj2,1,2)>30),sum(diff(ind_rj2,1,2)>30)];
+end
+        num_saccDiff{nH+1,sub}=nan(length(binsEdgeDiff)-1,1);
+        num_saccDiffnTe{nH+1,sub}=nan(length(binsEdgeDiff)-1,nnH);
+        for stimDiff=1:length(binsEdgeDiff)-1
+            ind_diff=find(TrialDiff{nH+1,sub}>binsEdgeDiff(stimDiff) & TrialDiff{nH+1,sub}<=binsEdgeDiff(stimDiff+1));
+            num_saccDiff{nH+1,sub}(stimDiff)=2*mean(num_sacc{nH+1,sub}(ind_diff,:),'all','omitnan');
+            ind_nTe=mod(ind_diff-1,3)+1;
+            for ii=1:nH+1
+                num_saccDiffnTe{nH+1,sub}(stimDiff,ii)=2*mean(num_sacc{nH+1,sub}(ind_diff(ind_nTe==ii),:),'all','omitnan');
+            end
+        end
+    end
+end
+
+%% saccade vs difficulty
+figure(1);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+        plot(num_saccDiff{nH+1,sub},'b','Marker','o')
+        xlim([0,6])   
+        ylim([1,6])
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=10
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([1,5])
+            xticklabels(binsEdgeName([1,5]))
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['nH=',num2str(nH)]);
+            yticks([])
+        end
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Mean No. saccades','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'Difficulty','Interpreter','latex','FontSize',font_dim+2)
+title(tl,'Mean No. saccade per difficulty','Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_SaccadevsDiff_subjs'];
+    print(gcf,name,'-dpng')
+end
+
+%% saccade vs difficulty - trial within episode
+figure(11);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+        for nTe=1:nH+1
+            plot(num_saccDiffnTe{nH+1,sub}(:,nTe),'Color',col(nTe,:),'Marker','o','DisplayName',['nTe=',num2str(nTe)])
+        end
+        xlim([0,6])   
+        ylim([1,6])
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=10
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        else
+            xticks([1,5])
+            xticklabels(binsEdgeName([1,5]))
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['nH=',num2str(nH)]);
+            yticks([])
+        end
+        if sub==10&&nH>1
+            lgn=legend('Location','northwest');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Mean No. saccades','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'Difficulty','Interpreter','latex','FontSize',font_dim+2)
+title(tl,'Mean No. saccade per difficulty and Trial within Episode','Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_SaccadevsDiff_nTe_subjs'];
+    print(gcf,name,'-dpng')
+end
+
+%% saccade vs difficulty - all participants together
+
+figure(2);clf;
+set(gcf,'Position',[1 60 400 300])
+ax=gca;
+hold on
+
+for nH=0:nnH-1
+    temp=cell2mat(num_saccDiff(nH+1,:));
+    mm=mean(temp');
+    ss=0.5*std(temp');
+    
+%     plot(mm,'b','Color',col(nH+1,:),'Marker','o','DisplayName',['nH=',num2str(nH)])
+    errorbar(1:5,mm,ss,'Color',col(nH+1,:),'Marker','o','DisplayName',['nH=',num2str(nH)])
+end
+xticks(1:5)
+xticklabels(binsEdgeName)
+yticks(1:5)
+xlim([0,6])   
+ylim([1,4.5])
+legend('Location','northwest')
+box on; ax.FontSize=font_dim;
+ylabel('Mean No. saccades','Interpreter','latex','FontSize',font_dim+2)
+xlabel('Difficulty','Interpreter','latex','FontSize',font_dim+2)
+title('Mean No. saccade per difficulty','Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_SaccadevsDiff_summary'];
+    print(gcf,name,'-dpng')
+end
+
+%% saccade vs difficulty - all participants together - trial within episode
+subjToInclude=[10,11,13,14,16:19];
+
+figure(21);clf;
+set(gcf,'Position',[1 60 700 300])
+tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+
+for nH=0:nnH-1
+    nexttile
+    ax=gca;
+    hold on
+
+    temp1=cell2mat(num_saccDiffnTe(nH+1,:));
+    for nTe=1:nH+1
+        temp=temp1(:,nTe:nnH:end);
+        mm=mean(temp');
+        ss=0.5*std(temp');
+    %     plot(mm,'b','Color',col(nH+1,:),'Marker','o','DisplayName',['nH=',num2str(nH)])
+        errorbar(1:5,mm,ss,'Color',col(nTe,:),'Marker','o','DisplayName',['nTe=',num2str(nTe)])
+        title(['nH=',num2str(nH)])
+    end
+    xticks(1:5)
+    xticklabels(binsEdgeName)
+    if nH==0
+        yticks(1:5)
+    else
+        yticks([])
+    end
+    xlim([0,6])   
+    ylim([1,4.5])
+    box on; ax.FontSize=font_dim;
+end
+legend('Location','northwest')
+ylabel(tl,'Mean No. saccades','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'Difficulty','Interpreter','latex','FontSize',font_dim+2)
+title(tl,'Mean No. saccade per difficulty and trial within episode','Interpreter','latex','FontSize',font_dim+2)
+if salva
+    name=[folderSave,'Fig_SaccadevsDiff_nTe_summary'];
+    print(gcf,name,'-dpng')
+end
+
+%% how much is recorded?
+figure(1);clf;
+set(gcf,'Position',[1 100 1200 500])
+tt=tiledlayout(2,ceil(num_subj/2),'Padding','none','TileSpacing','compact');
+for sub=1:num_subj
+    nexttile
+    ax=gca;
+    test=~isnan(eLx{nH+1,sub});
+    test=sum(test);
+    histogram(test,10,'Normalization','probability')
+    ylim([0,0.8])
+%     xlim([0,500])
+    if sub~=1
+        yticks([])
+    end
+    title(['sub=',num2str(sub)])
+    box on; ax.FontSize=font_dim;
+end
+xlabel(tt,'Number of eye-data points per trial','interpreter','latex','fontSize',font_dim+2)
+
+%% trajectories
+
+sub=15;
+nH=0;
+ev_sel=[2,4:8,11:12];
+ev_name={'start','10','18','L','L','R','R','go','81','selection','86','87','90','95'};
+
+for n_t=33:length(err_trial{nH+1,sub})
+    
+    figure(1);clf;
+    set(gcf,'Position',[1 100 700 800])
+    tiledlayout(3,1,'Padding','none','TileSpacing','compact');
+    nexttile
+    ax=gca;
+    hold on
+    plot(eLx{nH+1,sub}(:,n_t),eLy{nH+1,sub}(:,n_t))
+    plot(eyesX{nH+1,sub}(:,n_t),eyesY{nH+1,sub}(:,n_t),'r-')
+    xlim([-500 500])
+    ylim([-300 300])
+    xlabel('x-coord')
+    ylabel('y-coord')
+    title(['Trial=',num2str(n_t),', error=',num2str(err_trial{nH+1,sub}(n_t))])
+    box on; ax.FontSize=font_dim;
+    
+    nexttile
+    ax=gca;
+    hold on
+    plot(eTime{nH+1,sub}(:,n_t),eLx{nH+1,sub}(:,n_t),'b')
+    plot(eTime{nH+1,sub}(:,n_t),eyesX{nH+1,sub}(:,n_t),'r-')
+    yl=[-500 500];
+    yline(0,'k-.')
+    plot(allEvents{nH+1,sub}(n_t,ev_sel),zeros(size(ev_sel)),'ro')
+    for i=ev_sel
+        text(allEvents{nH+1,sub}(n_t,i),100,ev_name{i},'HorizontalAlignment','center')
+    end
+    plot(eventsTime{nH+1,sub}(n_t,1)+mvOn{nH+1,sub}(n_t),0,'go')
+    text(eventsTime{nH+1,sub}(n_t,1)+mvOn{nH+1,sub}(n_t),100,'mvOn','HorizontalAlignment','center')
+    ylim(yl)
+    xlabel('time')
+    ylabel('x-coord')
+    box on; ax.FontSize=font_dim;
+    
+    nexttile
+    ax=gca;
+    plot(eTime{nH+1,sub}(:,n_t),eLp{nH+1,sub}(:,n_t),'b','DisplayName','Left')
+    hold on
+    plot(eTime{nH+1,sub}(:,n_t),eyesP{nH+1,sub}(:,n_t),'r-')
+%     plot(allEvents{1,1}(n_t,ev_sel),repmat(30,size(ev_sel)),'ro')
+%     for i=ev_sel
+%         text(allEvents{1,1}(n_t,i),33,ev_name{i},'HorizontalAlignment','center')
+%     end
+    ylim([10,40])
+    xlabel('time')
+    ylabel('Pupil')
+    box on; ax.FontSize=font_dim;
+   pause
+end
+
+%% densities Left eye
+xEd=linspace(-500,500,100);
+yEd=linspace(-300,300,100);
+
+figure(2);clf;
+set(gcf,'Position',[1 100 700 400])
+tiledlayout(2,3,'Padding','none','TileSpacing','compact');
+nexttile(1)
+ax=gca;
+histogram(reshape(eLx{nH+1,sub},[],1),xEd,'Normalization','pdf')
+xlim([-500 500])
+% ylim([0,0.008])
+xlabel('x-coord')
+ylabel('density')
+box on; ax.FontSize=font_dim;
+
+nexttile(4)
+ax=gca;
+[f,xi] = ksdensity(reshape(eLx{nH+1,sub},[],1));
+plot(xi,f,'LineWidth',2)
+xlim([-500 500])
+% ylim([0,0.008])
+xlabel('x-coord')
+ylabel('smooth density')
+box on; ax.FontSize=font_dim;
+
+nexttile(2,[2,2])
+ax=gca;
+histogram2(reshape(eLx{nH+1,sub},[],1),reshape(eLy{nH+1,sub},[],1),xEd,yEd,'DisplayStyle','tile','ShowEmptyBins','on',...
+    'Normalization','countdensity')
+colorbar
+caxis([0.01,0.3])
+xlim([-500 500])
+ylim([-300,300])
+xlabel('x-coord')
+ylabel('y-coord')
+title('Left eye')
+box on; ax.FontSize=font_dim;
+
+%% densities Right eye
+xEd=linspace(-500,500,100);
+yEd=linspace(-300,300,100);
+
+figure(3);clf;
+set(gcf,'Position',[1 100 700 400])
+tiledlayout(2,3,'Padding','none','TileSpacing','compact');
+nexttile(1)
+ax=gca;
+histogram(reshape(eRx{nH+1,sub},[],1),xEd,'Normalization','pdf')
+xlim([-500 500])
+% ylim([0,0.008])
+xlabel('x-coord')
+ylabel('density')
+box on; ax.FontSize=font_dim;
+
+nexttile(4)
+ax=gca;
+[f,xi] = ksdensity(reshape(eRx{nH+1,sub},[],1));
+plot(xi,f,'LineWidth',2)
+xlim([-500 500])
+% ylim([0,0.008])
+xlabel('x-coord')
+ylabel('smooth density')
+box on; ax.FontSize=font_dim;
+
+nexttile(2,[2,2])
+ax=gca;
+histogram2(reshape(eRx{nH+1,sub},[],1),reshape(eRy{nH+1,sub},[],1),xEd,yEd,'DisplayStyle','tile','ShowEmptyBins','on',...
+    'Normalization','countdensity')
+colorbar
+caxis([0.01,0.3])
+xlim([-500 500])
+ylim([-300,300])
+xlabel('x-coord')
+ylabel('y-coord')
+title('Right eye')
+box on; ax.FontSize=font_dim;
+
+%% densities both eyes
+xEd=linspace(-500,500,100);
+yEd=linspace(-300,300,100);
+
+figure(4);clf;
+set(gcf,'Position',[1 100 700 400])
+tiledlayout(2,3,'Padding','none','TileSpacing','compact');
+nexttile(1)
+ax=gca;
+histogram(reshape(eyesX{nH+1,sub},[],1),xEd,'Normalization','pdf')
+xlim([-500 500])
+% ylim([0,0.008])
+xlabel('x-coord')
+ylabel('density')
+box on; ax.FontSize=font_dim;
+
+nexttile(4)
+ax=gca;
+[f,xi] = ksdensity(reshape(eyesX{nH+1,sub},[],1));
+plot(xi,f,'LineWidth',2)
+xlim([-500 500])
+% ylim([0,0.008])
+xlabel('x-coord')
+ylabel('smooth density')
+box on; ax.FontSize=font_dim;
+
+nexttile(2,[2,2])
+ax=gca;
+histogram2(reshape(eyesX{nH+1,sub},[],1),reshape(eyesY{nH+1,sub},[],1),xEd,yEd,'DisplayStyle','tile','ShowEmptyBins','on',...
+    'Normalization','countdensity')
+colorbar
+caxis([0.01,0.3])
+xlim([-500 500])
+ylim([-300,300])
+xlabel('x-coord')
+ylabel('y-coord')
+title('Both eyes')
+box on; ax.FontSize=font_dim;
+
+%% %-time spent looking right - left eye
+% sub=15;
+% nH=0;
+% goT=eventsTime{nH+1,sub}(:,4); % go
+% % beforeGoT=max(eventsTime{nH+1,sub}(:,2),eventsTime{nH+1,sub}(:,3)); % ev_code=[10,30,50,80,85];
+% % selT=eventsTime{nH+1,sub}(:,5); % target selected
+% stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1); % movement onset
+% % mvOffT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1); % movement offset
+% 
+% TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+% for n_t=1:length(err_trial{nH+1,sub})
+%     ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+%     look=[sum(eLx{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eLx{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+%     temp=choice{nH+1,sub}(n_t);
+%     TR(n_t,:)=[look(2)/sum(look),temp];
+% end
+% %
+% xEd=0:0.2:1;
+% mm=nan(size(xEd,1)-1,1);
+% ss=nan(size(xEd,1)-1,1);
+% for i=1:size(xEd,2)-1
+%     temp=find(TR(:,1)>=xEd(i) & TR(:,1)<=xEd(i+1));
+%     mm(i)=mean(TR(temp,2));
+%     ss(i)=std(TR(temp,2));
+% end
+% xEd=(xEd(1:end-1)+xEd(2:end))/2;
+% 
+% figure(4);clf;
+% ax=gca;
+% hold on
+% plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+% errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+% ylim([-1.2,1.2])
+% ylabel('choose L-R')
+% xlabel('\% time looking R')
+% title('Time looking right from Go to mvOnset - Left eye')
+% box on; ax.FontSize=font_dim;
+
+%% %-time spent looking right - both eyes
+% look-left if x<-borderSaccade
+% look-right if x>borderSaccade
+
+% goT=eventsTime{nH+1,sub}(:,4); % go
+% stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1); % movement onset
+% % beforeGoT=max(eventsTime{nH+1,sub}(:,2),eventsTime{nH+1,sub}(:,3)); % ev_code=[10,30,50,80,85];
+% % selT=eventsTime{nH+1,sub}(:,5); % target selected
+% % mvOnT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1); % movement onset
+% % mvOffT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1); % movement offset
+% 
+% TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+% for n_t=1:length(err_trial{nH+1,sub})
+%     ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t))); % beforeGo - mov.Onset
+%     look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+%     temp=choice{nH+1,sub}(n_t);
+%     TR(n_t,:)=[look(2)/sum(look),temp];
+% end
+% %
+% xEd=0:0.2:1;
+% mm=nan(size(xEd,2)-1,1);
+% ss=nan(size(xEd,2)-1,1);
+% for i=1:size(xEd,2)-1
+%     temp=find(TR(:,1)>=xEd(i) & TR(:,1)<=xEd(i+1));
+%     mm(i)=mean(TR(temp,2));
+%     ss(i)=std(TR(temp,2));
+% end
+% xEd=(xEd(1:end-1)+xEd(2:end))/2;
+% 
+% figure(5);clf;
+% ax=gca;
+% hold on
+% plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+% errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+% ylim([-1.2,1.2])
+% ylabel('choose L-R')
+% xlabel('\% time looking R')
+% title('Time looking right from Go to mvOnset - both eyes')
+% box on; ax.FontSize=font_dim;
+
+
+%% %-time looking right / left - both eyes
+% % look-left if x<-borderSaccade
+% % look-right if x>borderSaccade
+% 
+% % ev_name={'start','10','18','L','L','R','R','go','81','selection','86','87','90','95'};
+% % ev_code=[10,30,50,80,85];
+% goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)); % go
+% stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1); % movement onset
+% 
+% TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+% for n_t=1:length(err_trial{nH+1,sub})
+%     ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t))); % beforeGo - mov.Onset
+%     look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+%     temp=choice{nH+1,sub}(n_t);
+%     TR(n_t,:)=[look(2)/sum(look),temp];
+% end
+% TR_sort=sort(TR(:,1));
+% TR_sort=TR_sort(~isnan(TR_sort));
+% 
+% figure(6);clf;
+% tl = tiledlayout(1,2,'Padding','none','TileSpacing','compact');
+% 
+% nexttile
+% ax=gca;
+% hold on
+% w=0.2; sw=w-0.05; i0=0.; i1=1;
+% xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+% mm=nan(size(xEd,1),1);
+% ss=nan(size(xEd,1),1);
+% for i=1:size(xEd,1)
+%     temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+%     mm(i)=mean(TR(temp,2));
+%     ss(i)=std(TR(temp,2));
+% end
+% xEd_p=mean(xEd,2);
+% plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+% errorbar(xEd_p,mm,0.5*ss,'r','Marker','o')
+% ylim([-1.2,1.2])
+% ylabel('choose L-R')
+% xlabel('\% time looking R')
+% title('linear binning')
+% box on; ax.FontSize=font_dim;
+% 
+% 
+% nexttile
+% ax=gca;
+% hold on
+% w=25; sw_i=5; sw=w-sw_i;
+% xEd=[TR_sort(1:sw:end-w+1),TR_sort(w:sw:end)];
+% mm=nan(size(xEd,1),1);
+% ss=nan(size(xEd,1),1);
+% for i=1:size(xEd,1)
+%     temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+%     mm(i)=mean(TR(temp,2));
+%     ss(i)=std(TR(temp,2));
+% end
+% xEd_p=mean(xEd,2);
+% plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+% errorbar(xEd_p,mm,1.95*ss/w,'r','Marker','o')
+% ylim([-1.2,1.2])
+% ylabel('choose L-R')
+% xlabel('\% time looking R')
+% title('binning by No points')
+% box on; ax.FontSize=font_dim;
+% 
+% title(tl, 'Time looking right from Start to mvOnset')
+
+
+%% %-time looking right - all participant
+
+figure(10);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+for n_t=1:length(err_trial{nH+1,sub})
+    ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+    if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+        continue
+    end
+    look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+    temp=(choice{nH+1,sub}(n_t)+1)/2;
+    TR(n_t,:)=[look(2)/sum(look),temp];
+end
+% remove outliers
+temp1=~isoutlier(TR(:,1));
+TR=[TR(temp1,1),TR(temp1,2)];
+
+TR_sort=sort(TR(:,1));
+TR_sort=TR_sort(~isnan(TR_sort));
+
+w=0.15; sw=w-0.05; i0=0.; i1=1;
+xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+% TR(:,1)=log(TR(:,1));
+% xEd=log(xEd);
+mm=nan(size(xEd,1),1);
+ss=nan(size(xEd,1),1);
+for i=1:size(xEd,1)
+    temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+    mm(i)=mean(TR(temp,2));
+    ss(i)=std(TR(temp,2));
+end
+xEd_p=mean(xEd,2);
+plot(xEd_p,mm,'Marker','o','Color','b','LineWidth',1.2)
+
+w=20; sw_i=5; sw=w-sw_i;
+xEd=[TR_sort(1:sw:end-w+1),TR_sort(w:sw:end)];
+mm=nan(size(xEd,1),1);
+ss=nan(size(xEd,1),1);
+for i=1:size(xEd,1)
+    temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+    mm(i)=mean(TR(temp,2));
+    ss(i)=std(TR(temp,2));
+end
+xEd_p=mean(xEd,2);
+% plot(xEd_p,mm,'Marker','x','Color','r','LineWidth',1.2)
+
+% ax.XScale='log';
+ylim([0,1])
+xlim([0,1])
+% xlim([xEd_p(1),xEd_p(end)])
+
+if nH==0
+    title(subj_name{sub},'FontSize',font_dim)
+end
+if sub~=10
+    yticks([])
+end
+if nH<nnH-1
+    xticks([])
+end
+if sub==num_subj
+    colororder({'k','k'})
+    yyaxis right
+    ylabel(['nH=',num2str(nH)]);
+    yticks([])
+end
+if sub==1&&nH>1
+    lgn=legend('Location','northeast');
+    lgn.FontSize=font_dim-4;
+    lgn.ItemTokenSize=[10,18];   
+end
+box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'\% time looking R','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrPercvsPr_subjs'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right / left - both eyes - different windows
+% % look-left if x<-borderSaccade
+% % look-right if x>borderSaccade
+% 
+% % ev_code=[10,30,50,80,85];
+% if TimeInt_go==1
+%     goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+% elseif TimeInt_go==2
+%     goT=eventsTime{nH+1,sub}(:,3);
+% elseif TimeInt_go==3
+%     goT=eventsTime{nH+1,sub}(:,4);
+% end
+% if TimeInt_stop==1
+%    stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+% elseif TimeInt_stop==2
+%     stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+% elseif TimeInt_stop==3
+%     stopT=eventsTime{nH+1,sub}(:,5);
+% end
+% TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+% for n_t=1:length(err_trial{nH+1,sub})
+%     ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t))); % beforeGo - mov.Onset
+%     if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+%         continue
+%     end
+%     look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+%     temp=(choice{nH+1,sub}(n_t)+1)/2;
+%     TR(n_t,:)=[look(2)/look(1),temp];
+% end
+% % remove outliers
+% temp1=~isoutlier(TR(:,1));
+% TR=[TR(temp1,1),TR(temp1,2)];
+% 
+% TR_sort=sort(TR(:,1));
+% TR_sort=TR_sort(~isnan(TR_sort));
+% 
+% figure(6);clf;
+% set(gcf,'Position',[1 100 1200 800])
+% tiledlayout(6,5,'Padding','none','TileSpacing','compact');
+% for w=10:2:20
+%     for sw_i=5:9
+% %         w=18;
+% %         sw_i=7;
+%         nexttile
+%         ax=gca;
+%         hold on    
+%         sw=w-sw_i;
+%         xEd=[TR_sort(1:sw:end-w+1),TR_sort(w:sw:end)];
+% 
+%         mm=nan(size(xEd,1),1);
+%         ss=nan(size(xEd,1),1);
+%         for i=1:size(xEd,1)
+%             temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+%             mm(i)=mean(TR(temp,2));
+%             ss(i)=std(TR(temp,2));
+%         end
+%         xEd=mean(xEd,2);
+% 
+%         plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+%         plot(xEd,mm,'r','Marker','o')
+% %         errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+%         ylim([-0.1,1.1])
+%         xlim([min(TR(:,1)),max(TR(:,1))])
+%         xticks([])
+%         yticks([])
+%         title(['w=',num2str(w),', sw=',num2str(sw_i)])
+% %         ylabel('choose R')
+% %         xlabel('TR/TL')
+% %         title('Time looking right from Start to mvOnset')
+%         box on; ax.FontSize=font_dim;
+%     end
+% end
+% figure(7);clf;
+% ax=gca;
+% hold on
+% plot(log(TR(:,1)),TR(:,2),'bo','LineWidth',2)
+% errorbar(log(xEd),mm,0.5*ss,'r','Marker','o')
+% ylabel('choose R')
+% xlabel('log(TR/TL)')
+% title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label],'Interpreter','latex','FontSize',font_dim+2)
+% box on; ax.FontSize=font_dim;
+% 
+% figure(8);clf;
+% ax=gca;
+% hold on
+% plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+% errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+% ax.XScale='log';
+% ylabel('choose R')
+% xlabel('TR/TL')
+% title(['From ',TimeInt_go_label,' to ',TimeInt_stop_label],'Interpreter','latex','FontSize',font_dim+2)
+% box on; ax.FontSize=font_dim;
+
+%% time looking right / left - both eyes - difficulties - No linear binning
+
+% if TimeInt_go==1
+%     goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+% elseif TimeInt_go==2
+%     goT=eventsTime{nH+1,sub}(:,3);
+% elseif TimeInt_go==3
+%     goT=eventsTime{nH+1,sub}(:,4);
+% end
+% if TimeInt_stop==1
+%    stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+% elseif TimeInt_stop==2
+%     stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+% elseif TimeInt_stop==3
+%     stopT=eventsTime{nH+1,sub}(:,5);
+% end% 
+% figure(7);clf;
+% set(gcf,'Position',[1 100 600 400])
+% % tt=tiledlayout(1,5,'Padding','none','TileSpacing','compact');
+% ax=gca;
+% hold on
+% 
+% for stimDiff=1:length(binsEdgeDiff)-1
+% 
+%     TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+%     for n_t=1:length(err_trial{nH+1,sub})
+%         if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+%             continue
+%         end
+%         ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t))); % beforeGo - mov.Onset
+%         if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+%             continue
+%         end
+%         look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+%         temp=(choice{nH+1,sub}(n_t)+1)/2;
+%         TR(n_t,:)=[look(2)/look(1),temp];
+%     end
+%     % remove outliers
+%     temp1=~isoutlier(TR(:,1));
+%     TR=[TR(temp1,1),TR(temp1,2)];
+%     
+%     TR_sort=sort(TR(:,1));
+%     TR_sort=TR_sort(~isnan(TR_sort));
+%     
+%     w=25; sw_i=5; sw=w-sw_i;
+%     xEd=[TR_sort(1:sw:end-w+1),TR_sort(w:sw:end)];
+%     mm=nan(size(xEd,1),1);
+%     ss=nan(size(xEd,1),1);
+%     for i=1:size(xEd,1)
+%         temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+%         mm(i)=mean(TR(temp,2));
+%         ss(i)=std(TR(temp,2));
+%     end
+%     xEd=mean(xEd,2);
+% 
+%     % plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+%     % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+%     plot(log(xEd),mm,'Marker','o','Color',col_d(stimDiff,:),...
+%         'DisplayName',binsEdgeName{stimDiff},'LineWidth',1.2)
+% end
+% % ax.XScale='log';
+% ylim([-0.1,1.1])
+% xticks([])
+% yticks([])
+% ylabel('choose R')
+% xlabel('$log(T_R/T_L)$')
+% legend('Location','northwest')
+% title('From Start to mvOnset - 1 participant - no Linear binning')
+% box on; ax.FontSize=font_dim;
+% % 
+% %     end
+% % end
+
+%% time looking right / left - both eyes - all participants - no linear binning
+
+figure(8);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+for n_t=1:length(err_trial{nH+1,sub})
+    ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+    if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+        continue
+    end
+    look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+    temp=(choice{nH+1,sub}(n_t)+1)/2;
+    TR(n_t,:)=[look(2)/look(1),temp];
+end
+% remove outliers
+temp1=~isoutlier(TR(:,1));
+TR=[TR(temp1,1),TR(temp1,2)];
+
+TR_sort=sort(TR(:,1));
+TR_sort=TR_sort(~isnan(TR_sort));
+
+w=15; sw_i=5; sw=w-sw_i;
+xEd=[TR_sort(1:sw:end-w+1),TR_sort(w:sw:end)];
+
+% w=0.3; sw=w-0.1; i0=0.3; i1=4;
+% xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+% TR(:,1)=log(TR(:,1));
+% xEd=log(xEd);
+mm=nan(size(xEd,1),1);
+ss=nan(size(xEd,1),1);
+for i=1:size(xEd,1)
+    temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+    mm(i)=mean(TR(temp,2));
+    ss(i)=std(TR(temp,2));
+end
+xEd_p=log(mean(xEd,2));
+
+% plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+% errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+plot(xEd_p,mm,'Marker','o','Color','b','LineWidth',1.2)
+% ax.XScale='log';
+ylim([0,1])
+xlim([-1.2,1.2])
+
+if nH==0
+    title(subj_name{sub},'FontSize',font_dim)
+end
+if sub~=10
+    yticks([])
+end
+if nH<nnH-1
+    xticks([])
+end
+if sub==num_subj
+    colororder({'k','k'})
+    yyaxis right
+    ylabel(['nH=',num2str(nH)]);
+    yticks([])
+end
+if sub==1&&nH>1
+    lgn=legend('Location','northeast');
+    lgn.FontSize=font_dim-4;
+    lgn.ItemTokenSize=[10,18];   
+end
+box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - no linear Bin'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_subjs_noLinBin'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right / left - both eyes - all participants - linear binning
+
+figure(9);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+for n_t=1:length(err_trial{nH+1,sub})
+    ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+    if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+        continue
+    end
+    look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+    temp=(choice{nH+1,sub}(n_t)+1)/2;
+    TR(n_t,:)=[look(2)/look(1),temp];
+end
+% remove outliers
+temp1=~isoutlier(TR(:,1));
+TR=[TR(temp1,1),TR(temp1,2)];
+
+w=0.3; sw=w-0.1; i0=0.3; i1=4;
+xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+mm=nan(size(xEd,1),1);
+ss=nan(size(xEd,1),1);
+for i=1:size(xEd,1)
+    temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+    mm(i)=mean(TR(temp,2));
+    ss(i)=std(TR(temp,2));
+end
+xEd_p=log(mean(xEd,2));
+
+% errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+plot(xEd_p,mm,'Marker','o','Color','b','LineWidth',1.2)
+ylim([0,1])
+xlim([-1.2,1.2])
+
+if nH==0
+    title(subj_name{sub},'FontSize',font_dim)
+end
+if sub~=10
+    yticks([])
+end
+if nH<nnH-1
+    xticks([])
+end
+if sub==num_subj
+    colororder({'k','k'})
+    yyaxis right
+    ylabel(['nH=',num2str(nH)]);
+    yticks([])
+end
+if sub==1&&nH>1
+    lgn=legend('Location','northeast');
+    lgn.FontSize=font_dim-4;
+    lgn.ItemTokenSize=[10,18];   
+end
+box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Linear Bin'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_subjs_LinBin'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right / left -  all participants - difficulty - linear binning
+% look-left if x<-borderSaccade
+% look-right if x>borderSaccade
+
+
+figure(10);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+for stimDiff=1:length(binsEdgeDiff)-1
+
+    TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+    for n_t=1:length(err_trial{nH+1,sub})
+        if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+            continue
+        end
+    ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+    if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+        continue
+    end
+    look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+    temp=(choice{nH+1,sub}(n_t)+1)/2;
+    TR(n_t,:)=[look(2)/look(1),temp];
+    end
+% remove outliers
+temp1=~isoutlier(TR(:,1));
+TR=[TR(temp1,1),TR(temp1,2)];
+
+w=0.3; sw=w-0.1; i0=0.3; i1=4;
+xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+%     xEd=min(TR(:,1)):0.4:max(TR(~isinf(TR(:,1)),1));
+% TR(:,1)=log(TR(:,1));
+% xEd=log(xEd);
+mm=nan(size(xEd,1),1);
+ss=nan(size(xEd,1),1);
+for i=1:size(xEd,1)
+    temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+    mm(i)=mean(TR(temp,2));
+    ss(i)=std(TR(temp,2));
+end
+xEd_p=log(mean(xEd,2));
+
+% plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+% errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+plot(xEd_p,mm,'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2, 'DisplayName',binsEdgeName{stimDiff})
+
+end
+% ax.XScale='log';
+ylim([0,1])
+xlim([-1.2,1.2])
+
+if nH==0
+    title(subj_name{sub},'FontSize',font_dim)
+end
+if sub~=10
+    yticks([])
+end
+if nH<nnH-1
+    xticks([])
+end
+if sub==num_subj
+    colororder({'k','k'})
+    yyaxis right
+    ylabel(['nH=',num2str(nH)]);
+    yticks([])
+end
+if sub==1&&nH>1
+    lgn=legend('Location','northeast');
+    lgn.FontSize=font_dim-4;
+    lgn.ItemTokenSize=[10,18];   
+end
+box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Linear Bin'],'Interpreter','latex','FontSize',font_dim+2)
+
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_subjsDiff_LinBin'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right - 3 horizons
+figure(12);clf;
+set(gcf,'Position',[1 60 400 600])
+% tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+% nexttile
+ax=gca;
+hold on
+
+for nH=0:nnH-1
+    
+    w=0.3; sw=w-0.1; i0=0.3; i1=4;
+    xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+    mm=nan(num_subj,size(xEd,1));
+    ss=nan(num_subj,size(xEd,1));
+    
+    for sub=1:num_subj        
+      
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(n_t,:)=[look(2)/look(1),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        % w=18;
+        % sw_i=7;
+        % xEd=[TR_sort(1:sw:end-w+1),TR_sort(w:sw:end)];
+
+        
+        % TR(:,1)=log(TR(:,1));
+        % xEd=log(xEd);
+
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(sub-9,i)=mean(TR(temp,2));
+            ss(sub-9,i)=std(TR(temp,2));
+        end
+        % xEd=xEd(2,1:end);
+        
+    end
+
+        % plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+        % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+        xEd_p=log(mean(xEd,2));
+        plot(xEd_p,mean(mm),'Marker','o','Color',col(nH+1,:),'LineWidth',1.2,'DisplayName',['nH=',num2str(nH)])
+%         ax.XScale='log';
+        ylim([0,1])
+        xlim([-1.2,1.2])
+
+%         title(['nH=',num2str(nH)]);
+        box on; ax.FontSize=font_dim;
+end
+legend
+ylabel('Choose Right')
+xlabel('$log(T_R/T_L)$')
+title(['From ',TimeInt_go_label,' to ',TimeInt_stop_label])
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_LinBin_nH'];
+    print(gcf,name,'-dpng')
+end
+
+
+%% time looking right - horizons and difficulties
+figure(13);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+
+for nH=0:nnH-1
+    
+    nexttile
+    ax=gca;
+    hold on
+    w=0.3; sw=w-0.1; i0=0.3; i1=4;
+    xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+    mm=nan(num_subj,size(xEd,1));
+    ss=nan(num_subj,size(xEd,1));
+    
+    for stimDiff=1:length(binsEdgeDiff)-1
+
+    for sub=1:num_subj        
+    
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                continue
+            end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(n_t,:)=[look(2)/look(1),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        % w=18;
+        % sw_i=7;
+        % xEd=[TR_sort(1:sw:end-w+1),TR_sort(w:sw:end)];
+
+        
+        % TR(:,1)=log(TR(:,1));
+        % xEd=log(xEd);
+
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(sub-9,i)=mean(TR(temp,2));
+            ss(sub-9,i)=std(TR(temp,2));
+        end
+        % xEd=xEd(2,1:end);
+        
+    end
+
+        % plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+        % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+        xEd_p=log(mean(xEd,2));
+        plot(xEd_p,mean(mm),'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2,'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         ax.XScale='log';
+        ylim([0,1])
+        xlim([-1.2,1.2])
+        if nH~=0
+            yticks([])
+        end
+
+        title(['nH=',num2str(nH)]);
+        box on; ax.FontSize=font_dim;
+    end
+end
+legend('Location','northwest')
+
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_LinBin_nHDiff'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right - all participants - QUARTILE
+
+figure(14);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(n_t,:)=[look(2)/look(1),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+            TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+            TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+            TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+        
+        mm=nan(size(xEd,1),1);
+        ss=nan(size(xEd,1),1);
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(i)=mean(TR(temp,2));
+            ss(i)=std(TR(temp,2));
+        end
+        xEd_p=log(mean(xEd,2));
+
+        % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+        plot(xEd_p,mm,'Marker','o','Color','b','LineWidth',1.2)
+        ylim([0,1])
+        xlim([-1.2,1.2])
+
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=10
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['nH=',num2str(nH)]);
+            yticks([])
+        end
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_Quart_subjs'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right / left -  all participants - difficulty - QUARTILE
+
+figure(15);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        for stimDiff=1:length(binsEdgeDiff)-1
+
+            TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+            for n_t=1:length(err_trial{nH+1,sub})
+                if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                    continue
+                end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(n_t,:)=[look(2)/look(1),temp];
+            end
+            % remove outliers
+            temp1=~isoutlier(TR(:,1));
+            TR=[TR(temp1,1),TR(temp1,2)];
+
+            TR_sort=sort(TR(:,1));
+            TR_sort=TR_sort(~isnan(TR_sort));
+
+            xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+                TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+                TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+                TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+
+            mm=nan(size(xEd,1),1);
+            ss=nan(size(xEd,1),1);
+            for i=1:size(xEd,1)
+                temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+                mm(i)=mean(TR(temp,2));
+                ss(i)=std(TR(temp,2));
+            end
+            xEd_p=log(mean(xEd,2));
+
+            % plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+            % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+            plot(xEd_p,mm,'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2, 'DisplayName',binsEdgeName{stimDiff})
+
+        end
+        % ax.XScale='log';
+        ylim([0,1])
+        xlim([-1.5,1.5])
+
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=10
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['nH=',num2str(nH)]);
+            yticks([])
+        end
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_Quart_subjsDiff'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right - 3 horizons - QUARTILE
+figure(16);clf;
+set(gcf,'Position',[1 60 400 600])
+% tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+% nexttile
+ax=gca;
+hold on
+
+for nH=0:nnH-1
+    
+    mm=nan(num_subj,4);
+    ss=nan(num_subj,4);
+    xEd_p=nan(num_subj,4);
+    
+    for sub=1:num_subj
+       if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(n_t,:)=[look(2)/look(1),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+            TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+            TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+            TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+        
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(sub-9,i)=mean(TR(temp,2));
+            ss(sub-9,i)=std(TR(temp,2));
+        end
+        xEd_p(sub-9,:)=log(mean(xEd,2));
+    end
+        yneg = 1.95*std(mm)/size(mm,1);
+        ypos = yneg;
+        xneg = 1.95*std(xEd_p)/size(xEd_p,1);
+        xpos = xneg;
+        errorbar(mean(xEd_p),mean(mm),yneg,ypos,xneg,xpos,'r','Marker','o','Color',col(nH+1,:),'DisplayName',['nH=',num2str(nH)])
+%         plot(mean(xEd_p),mean(mm),'Marker','o','Color',col(nH+1,:),'LineWidth',1.2,'DisplayName',['nH=',num2str(nH)])
+        ylim([0,1])
+        xlim([-1.1,1.1])
+        box on; ax.FontSize=font_dim;
+end
+legend
+ylabel('Choose Right')
+xlabel('$log(T_R/T_L)$')
+title(['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'])
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_Quart_nH'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right - horizons and difficulties - QUARTILE
+figure(17);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+
+for nH=0:nnH-1
+    
+    nexttile
+    ax=gca;
+    hold on
+    mm=nan(num_subj,4);
+    ss=nan(num_subj,4);
+    xEd_p=nan(num_subj,4);
+    
+    for stimDiff=1:length(binsEdgeDiff)-1
+
+    for sub=1:num_subj
+        
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                continue
+            end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(n_t,:)=[look(2)/look(1),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+            TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+            TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+            TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+        
+
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(sub-9,i)=mean(TR(temp,2));
+            ss(sub-9,i)=std(TR(temp,2));
+        end
+        xEd_p(sub-9,:)=log(mean(xEd,2));
+        
+    end
+        yneg = 1.95*std(mm)/size(mm,1);
+        ypos = yneg;
+        xneg = 1.95*std(xEd_p)/size(xEd_p,1);
+        xpos = xneg;
+        errorbar(mean(xEd_p),mean(mm),yneg,ypos,xneg,xpos,'r','Marker','o','Color',col_d(stimDiff,:),'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         plot(mean(xEd_p),mean(mm),'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2,'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         ax.XScale='log';
+        ylim([0,1])
+%         yline(0.5,'k--')
+        xlim([-1.2,1.2])
+        if nH~=0
+            yticks([])
+        end
+
+        title(['nH=',num2str(nH)]);
+        box on; ax.FontSize=font_dim;
+    end
+end
+legend('Location','northwest')
+
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_Quart_nHDiff'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right - 3 horizons - QUARTILE all together
+figure(18);clf;
+set(gcf,'Position',[1 60 400 600])
+% tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+% nexttile
+ax=gca;
+hold on
+
+for nH=0:nnH-1
+    TR=nan(6000,2); % time spent looking right
+    l=0;
+    for sub=1:num_subj
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+ 
+        for n_t=1:length(err_trial{nH+1,sub})
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(l+n_t,:)=[look(2)/look(1),temp];
+        end
+        l=l+n_t;
+    end
+    TR=TR(~isnan(TR(:,1)),:);
+    
+    % remove outliers
+    temp1=~isoutlier(TR(:,1));
+    TR=[TR(temp1,1),TR(temp1,2)];
+
+    TR_sort=sort(TR(:,1));
+    TR_sort=TR_sort(~isnan(TR_sort));
+
+    xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+        TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+        TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+        TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+    
+    mm=nan(1,4);
+    ss=nan(1,4);
+    for i=1:size(xEd,1)
+        temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+        mm(i)=mean(TR(temp,2));
+        ss(i)=1.95*std(TR(temp,2))/length(TR(temp,2));
+    end
+    xEd_p=log(mean(xEd,2));
+    
+%     errorbar(xEd_p,mm,ss,'r','Marker','o','Color',col(nH+1,:),'DisplayName',['nH=',num2str(nH)])
+    plot(xEd_p,mm,'Marker','o','Color',col(nH+1,:),'LineWidth',1.2,'DisplayName',['nH=',num2str(nH)])
+    ylim([0,1])
+    xlim([-1.1,1.1])
+    box on; ax.FontSize=font_dim;
+end
+legend
+ylabel('Choose Right')
+xlabel('$log(T_R/T_L)$')
+title(['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile (allT)'])
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_QuartAllT_nH'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking right - horizons and difficulties - QUARTILE - all together
+figure(19);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+
+for nH=0:nnH-1
+    
+    nexttile
+    ax=gca;
+    hold on
+    
+    for stimDiff=1:length(binsEdgeDiff)-1
+        TR=nan(6000,2); % time spent looking right
+        l=0;
+    for sub=1:num_subj
+        
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        for n_t=1:length(err_trial{nH+1,sub})
+            if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                continue
+            end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(l+n_t,:)=[look(2)/look(1),temp];
+        end
+        l=l+n_t;
+    end
+    TR=TR(~isnan(TR(:,1)),:);
+    
+    % remove outliers
+    temp1=~isoutlier(TR(:,1));
+    TR=[TR(temp1,1),TR(temp1,2)];
+
+    TR_sort=sort(TR(:,1));
+    TR_sort=TR_sort(~isnan(TR_sort));
+
+    xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+        TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+        TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+        TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+
+    mm=nan(1,4);
+    ss=nan(1,4);
+    for i=1:size(xEd,1)
+        temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+        mm(i)=mean(TR(temp,2));
+        ss(i)=1.95*std(TR(temp,2))/length(TR(temp,2));
+    end
+    xEd_p=log(mean(xEd,2));
+
+        
+        errorbar(xEd_p,mm,ss,'r','Marker','o','Color',col_d(stimDiff,:),'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         plot(mean(xEd_p),mean(mm),'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2,'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         ax.XScale='log';
+        ylim([0,1])
+        xlim([-1.1,1.1])
+        if nH~=0
+            yticks([])
+        end
+
+        title(['nH=',num2str(nH)]);
+        box on; ax.FontSize=font_dim;
+    end
+end
+legend('Location','northwest')
+
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile (allT)'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_QuartAllT_nHDiff'];
+    print(gcf,name,'-dpng')
+end
+
+
+%% time looking right - 3 horizons - all Together
+figure(20);clf;
+set(gcf,'Position',[1 60 400 600])
+% tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+% nexttile
+ax=gca;
+hold on
+
+w=0.5; sw=w-0.1; i0=0.1; i1=2.8;
+xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+for nH=0:nnH-1
+    
+    TR=nan(6000,2); % time spent looking right
+    l=0;
+    for sub=1:num_subj  
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+        
+        for n_t=1:length(err_trial{nH+1,sub})
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(l+n_t,:)=[look(2)/look(1),temp];
+        end
+        l=l+n_t;
+    end
+    TR=TR(~isnan(TR(:,1)),:);
+    
+    % remove outliers
+    temp1=~isoutlier(TR(:,1));
+    TR=[TR(temp1,1),TR(temp1,2)];
+
+%     TR_sort=sort(TR(:,1));
+%     TR_sort=TR_sort(~isnan(TR_sort));
+    mm=nan(1,size(xEd,1));
+    ss=nan(1,size(xEd,1));
+    for i=1:size(xEd,1)
+        temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+        mm(i)=mean(TR(temp,2));
+        ss(i)=std(TR(temp,2));
+    end
+    xEd_p=log(mean(xEd,2));
+    % plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+    % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+    plot(xEd_p,mm,'Marker','o','Color',col(nH+1,:),'LineWidth',1.2,'DisplayName',['nH=',num2str(nH)])
+%         ax.XScale='log';
+end
+ylim([0,1])
+xlim([-1.5,1.5])
+box on; ax.FontSize=font_dim;
+legend('Location','northwest')
+ylabel('Choose Right')
+xlabel('$log(T_R/T_L)$')
+title(['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - allT'])
+
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_allT_nH'];
+    print(gcf,name,'-dpng')
+end
+
+
+
+%% time looking right - horizons and difficulties
+figure(21);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+
+w=0.5; sw=w-0.1; i0=0.1; i1=2.8;
+xEd=[i0:sw:i1;i0+w:sw:i1+w]';
+
+for nH=0:nnH-1
+    
+    nexttile
+    ax=gca;
+    hold on
+    
+    for stimDiff=1:length(binsEdgeDiff)-1
+    
+    TR=nan(6000,2); % time spent looking right
+    l=0;
+    for sub=1:num_subj    
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        for n_t=1:length(err_trial{nH+1,sub})
+            if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                continue
+            end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            TR(l+n_t,:)=[look(2)/look(1),temp];
+        end
+        l=l+n_t;        
+    end
+    TR=TR(~isnan(TR(:,1)),:);
+    
+    % remove outliers
+    temp1=~isoutlier(TR(:,1));
+    TR=[TR(temp1,1),TR(temp1,2)];
+
+%     TR_sort=sort(TR(:,1));
+%     TR_sort=TR_sort(~isnan(TR_sort));
+    mm=nan(1,size(xEd,1));
+    ss=nan(1,size(xEd,1));
+    for i=1:size(xEd,1)
+        temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+        mm(i)=mean(TR(temp,2));
+        ss(i)=std(TR(temp,2));
+    end
+       
+    xEd_p=log(mean(xEd,2));
+    plot(xEd_p,mm,'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2,'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         ax.XScale='log';
+    end
+    ylim([0,1])
+    xlim([-1.2,1.2])
+    if nH~=0
+        yticks([])
+    end
+    title(['nH=',num2str(nH)]);
+    box on; ax.FontSize=font_dim;
+end
+legend('Location','northwest')
+
+ylabel(tl,'Choose Right','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_R/T_L)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_TrTlvsPr_allT_nHDiff'];
+    print(gcf,name,'-dpng')
+end
+
+
+%% time looking 1-2 - all participants - QUARTILE
+
+figure(22);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        [~,orderPres]=min([allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)],[],2);
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int) || isempty(ind_int) || choice{nH+1,sub}(n_t)==0
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            if orderPres(n_t)==1 % to check 1st/2nd stim - choice
+                temp=1-temp;
+            end
+            
+            TR(n_t,:)=[look(orderPres(n_t))/look(3-orderPres(n_t)),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+            TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+            TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+            TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+        
+        mm=nan(size(xEd,1),1);
+        ss=nan(size(xEd,1),1);
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(i)=mean(TR(temp,2));
+            ss(i)=std(TR(temp,2));
+        end
+        xEd_p=log(mean(xEd,2));
+
+        % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+        plot(xEd_p,mm,'Marker','o','Color','b','LineWidth',1.2)
+        ylim([0,1])
+        xlim([-1.5,1.5])
+
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=10
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['nH=',num2str(nH)]);
+            yticks([])
+        end
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose 1st-Stim','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_1/T_2)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'],'Interpreter','latex','FontSize',font_dim+2)
+if salva
+    name=[folderSave,'Fig_T1T2vsPr_Quart_subjs'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking 1/2 -  all participants - difficulty - QUARTILE
+
+figure(23);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        [~,orderPres]=min([allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)],[],2);
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        for stimDiff=1:length(binsEdgeDiff)-1
+
+            TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+            for n_t=1:length(err_trial{nH+1,sub})
+                if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                    continue
+                end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            if orderPres(n_t)==1 % to check 1st/2nd stim - choice
+                temp=1-temp;
+            end
+            TR(n_t,:)=[look(orderPres(n_t))/look(3-orderPres(n_t)),temp];
+            end
+            % remove outliers
+            temp1=~isoutlier(TR(:,1));
+            TR=[TR(temp1,1),TR(temp1,2)];
+
+            TR_sort=sort(TR(:,1));
+            TR_sort=TR_sort(~isnan(TR_sort));
+
+            xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+                TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+                TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+                TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+
+            mm=nan(size(xEd,1),1);
+            ss=nan(size(xEd,1),1);
+            for i=1:size(xEd,1)
+                temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+                mm(i)=mean(TR(temp,2));
+                ss(i)=std(TR(temp,2));
+            end
+            xEd_p=log(mean(xEd,2));
+
+            % plot(TR(:,1),TR(:,2),'bo','LineWidth',2)
+            % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+            plot(xEd_p,mm,'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2, 'DisplayName',binsEdgeName{stimDiff})
+
+        end
+        % ax.XScale='log';
+        ylim([0,1])
+        xlim([-1.5,1.5])
+
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=10
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['nH=',num2str(nH)]);
+            yticks([])
+        end
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose 1st-Stim','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_1/T_2)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_T1T2vsPr_Quart_subjsDiff'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking 1-2 - 3 horizons - QUARTILE
+figure(24);clf;
+set(gcf,'Position',[1 60 400 600])
+% tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+% nexttile
+ax=gca;
+hold on
+
+for nH=0:nnH-1
+    
+    mm=nan(num_subj,4);
+    ss=nan(num_subj,4);
+    xEd_p=nan(num_subj,4);
+    
+    for sub=1:num_subj
+        [~,orderPres]=min([allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)],[],2);
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            if orderPres(n_t)==1 % to check 1st/2nd stim - choice
+                temp=1-temp;
+            end
+            TR(n_t,:)=[look(orderPres(n_t))/look(3-orderPres(n_t)),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+            TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+            TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+            TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+        
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(sub-9,i)=mean(TR(temp,2));
+            ss(sub-9,i)=std(TR(temp,2));
+        end
+        xEd_p(sub-9,:)=log(mean(xEd,2));
+    end
+        yneg = 1.95*std(mm)/size(mm,1);
+        ypos = yneg;
+        xneg = 1.95*std(xEd_p)/size(xEd_p,1);
+        xpos = xneg;
+        errorbar(mean(xEd_p),mean(mm),yneg,ypos,xneg,xpos,'r','Marker','o','Color',col(nH+1,:),'DisplayName',['nH=',num2str(nH)])
+%         plot(mean(xEd_p),mean(mm),'Marker','o','Color',col(nH+1,:),'LineWidth',1.2,'DisplayName',['nH=',num2str(nH)])
+        ylim([0,1])
+        xlim([-1.1,1.1])
+        box on; ax.FontSize=font_dim;
+end
+legend
+ylabel('Choose 1st-Stim')
+xlabel('$log(T_1/T_2)$')
+title(['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'])
+
+if salva
+    name=[folderSave,'Fig_T1T2vsPr_Quart_nH'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking 1-2 - horizons and difficulties - QUARTILE
+figure(25);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+
+for nH=0:nnH-1
+    
+    nexttile
+    ax=gca;
+    hold on
+    mm=nan(num_subj,4);
+    ss=nan(num_subj,4);
+    xEd_p=nan(num_subj,4);
+    
+    for stimDiff=1:length(binsEdgeDiff)-1
+
+    for sub=1:num_subj
+        
+        [~,orderPres]=min([allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)],[],2);
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        TR=nan(length(err_trial{nH+1,sub}),2); % time spent looking right
+        for n_t=1:length(err_trial{nH+1,sub})
+            if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                continue
+            end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            if orderPres(n_t)==1 % to check 1st/2nd stim - choice
+                temp=1-temp;
+            end 
+            TR(n_t,:)=[look(orderPres(n_t))/look(3-orderPres(n_t)),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+            TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+            TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+            TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+        
+
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(sub-9,i)=mean(TR(temp,2));
+            ss(sub-9,i)=std(TR(temp,2));
+        end
+        xEd_p(sub-9,:)=log(mean(xEd,2));
+        
+    end
+        yneg = 1.95*std(mm)/size(mm,1);
+        ypos = yneg;
+        xneg = 1.95*std(xEd_p)/size(xEd_p,1);
+        xpos = xneg;
+        errorbar(mean(xEd_p),mean(mm),yneg,ypos,xneg,xpos,'r','Marker','o','Color',col_d(stimDiff,:),'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         plot(mean(xEd_p),mean(mm),'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2,'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         ax.XScale='log';      
+    end
+    ylim([0,1])
+%     yline(0.5,'k--')
+    xlim([-1.2,1.2])
+    if nH~=0
+        yticks([])
+    end    
+    title(['nH=',num2str(nH)]);
+    box on; ax.FontSize=font_dim;
+end
+legend('Location','northwest')
+ylabel(tl,'Choose 1st-Stim','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_1/T_2)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_T1T2vsPr_Quart_nHDiff'];
+    print(gcf,name,'-dpng')
+end
+%% time looking 1-2 - all participants - QUARTILE - nTe
+
+figure(26);clf;
+set(gcf,'Position',[1 60 1200 600])
+tl = tiledlayout(nnH,num_subj,'Padding','none','TileSpacing','compact');
+for nH=0:nnH-1
+    for sub=1:num_subj
+        nexttile(sub-9+(num_subj)*nH)
+        ax=gca;
+        hold on
+
+        [~,orderPres]=min([allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)],[],2);
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        for nTe=1:nH+1
+            tr_nTe=nTe:nH+1:length(err_trial{nH+1,sub});
+            TR=nan(length(tr_nTe),2); % time spent looking right
+            for n_t=tr_nTe
+                ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+                if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int) || isempty(ind_int) || choice{nH+1,sub}(n_t)==0
+                    continue
+                end
+                look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+                temp=(choice{nH+1,sub}(n_t)+1)/2;
+                if orderPres(n_t)==1 % to check 1st/2nd stim - choice
+                    temp=1-temp;
+                end
+                n_t1=ceil(n_t/(nH+1));
+                TR(n_t1,:)=[look(orderPres(n_t))/look(3-orderPres(n_t)),temp];
+            end
+            % remove outliers
+            temp1=~isoutlier(TR(:,1));
+            TR=[TR(temp1,1),TR(temp1,2)];
+
+            TR_sort=sort(TR(:,1));
+            TR_sort=TR_sort(~isnan(TR_sort));
+
+            xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+                TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+                TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+                TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+
+            mm=nan(size(xEd,1),1);
+            ss=nan(size(xEd,1),1);
+            for i=1:size(xEd,1)
+                temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+                mm(i)=mean(TR(temp,2));
+                ss(i)=std(TR(temp,2));
+            end
+            xEd_p=log(mean(xEd,2));
+
+            % errorbar(xEd,mm,0.5*ss,'r','Marker','o')
+            plot(xEd_p,mm,'Marker','o','Color',col(nTe,:),'LineWidth',1.2)
+        end
+        ylim([0,1])
+        xlim([-1.5,1.5])
+
+        if nH==0
+            title(subj_name{sub},'FontSize',font_dim)
+        end
+        if sub~=10
+            yticks([])
+        end
+        if nH<nnH-1
+            xticks([])
+        end
+        if sub==num_subj
+            colororder({'k','k'})
+            yyaxis right
+            ylabel(['nH=',num2str(nH)]);
+            yticks([])
+        end
+        if sub==1&&nH>1
+            lgn=legend('Location','northeast');
+            lgn.FontSize=font_dim-4;
+            lgn.ItemTokenSize=[10,18];   
+        end
+        box on; ax.FontSize=font_dim;
+    end
+end
+ylabel(tl,'Choose 1st-Stim','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_1/T_2)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile - nTe'],'Interpreter','latex','FontSize',font_dim+2)
+if salva
+    name=[folderSave,'Fig_T1T2vsPr_Quart_subjs_nTe'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking 1-2 - 3 horizons - QUARTILE
+figure(28);clf;
+set(gcf,'Position',[1 60 800 500])
+tl = tiledlayout(1,nnH,'Padding','none','TileSpacing','compact');
+
+for nH=0:nnH-1
+    nexttile
+    ax=gca;
+    hold on
+    
+    for nTe=1:nH+1
+        
+        mm=nan(num_subj,4);
+        ss=nan(num_subj,4);
+        xEd_p=nan(num_subj,4);
+
+        for sub=1:num_subj
+            [~,orderPres]=min([allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)],[],2);
+            if TimeInt_go==1
+                goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+            elseif TimeInt_go==2
+                goT=eventsTime{nH+1,sub}(:,3);
+            elseif TimeInt_go==3
+                goT=eventsTime{nH+1,sub}(:,4);
+            end
+            if TimeInt_stop==1
+               stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+            elseif TimeInt_stop==2
+                stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+            elseif TimeInt_stop==3
+                stopT=eventsTime{nH+1,sub}(:,5);
+            end
+
+            tr_nTe=nTe:nH+1:length(err_trial{nH+1,sub});
+            TR=nan(length(tr_nTe),2); % time spent looking right
+            for n_t=tr_nTe
+                ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+                if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                    continue
+                end
+                look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+                temp=(choice{nH+1,sub}(n_t)+1)/2;
+                if orderPres(n_t)==1 % to check 1st/2nd stim - choice
+                    temp=1-temp;
+                end
+                n_t1=ceil(n_t/(nH+1));
+                TR(n_t1,:)=[look(orderPres(n_t))/look(3-orderPres(n_t)),temp];
+            end
+            % remove outliers
+            temp1=~isoutlier(TR(:,1));
+            TR=[TR(temp1,1),TR(temp1,2)];
+
+            TR_sort=sort(TR(:,1));
+            TR_sort=TR_sort(~isnan(TR_sort));
+
+            xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+                TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+                TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+                TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+
+            for i=1:size(xEd,1)
+                temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+                mm(sub-9,i)=mean(TR(temp,2));
+                ss(sub-9,i)=std(TR(temp,2));
+            end
+            xEd_p(sub-9,:)=log(mean(xEd,2));
+        end
+            yneg = 1.95*std(mm)/size(mm,1);
+            ypos = yneg;
+            xneg = 1.95*std(xEd_p)/size(xEd_p,1);
+            xpos = xneg;
+            errorbar(mean(xEd_p),mean(mm),yneg,ypos,xneg,xpos,'r','Marker','o','Color',col(nTe,:),'DisplayName',['nTe=',num2str(nTe)])
+    %         plot(mean(xEd_p),mean(mm),'Marker','o','Color',col(nH+1,:),'LineWidth',1.2,'DisplayName',['nH=',num2str(nH)])
+    end
+        ylim([0,1])
+        xlim([-1.1,1.1])
+        title(['nH=',num2str(nH)])
+        if nH~=0
+            yticks([])
+        end
+        box on; ax.FontSize=font_dim;
+end
+legend
+ylabel(tl,'Choose 1st-Stim','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_1/T_2)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile - nTe'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_T1T2vsPr_Quart_nH_nTe'];
+    print(gcf,name,'-dpng')
+end
+
+%% time looking 1-2 - horizons and difficulties - QUARTILE
+figure(29);clf;
+set(gcf,'Position',[1 60 1200 800])
+tl = tiledlayout(3,nnH,'Padding','none','TileSpacing','compact');
+
+for nH=0:nnH-1
+    
+    for nTe=1:nH+1
+    nexttile(nH+1+3*(nTe-1))
+    ax=gca;
+    hold on
+    mm=nan(num_subj,4);
+    ss=nan(num_subj,4);
+    xEd_p=nan(num_subj,4);
+    
+    for stimDiff=1:length(binsEdgeDiff)-1
+
+    for sub=1:num_subj
+        
+        [~,orderPres]=min([allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6)],[],2);
+        if TimeInt_go==1
+            goT=min(allEvents{nH+1,sub}(:,4),allEvents{nH+1,sub}(:,6));
+        elseif TimeInt_go==2
+            goT=eventsTime{nH+1,sub}(:,3);
+        elseif TimeInt_go==3
+            goT=eventsTime{nH+1,sub}(:,4);
+        end
+        if TimeInt_stop==1
+           stopT=mvOn{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==2
+            stopT=mvOff{nH+1,sub}+eventsTime{nH+1,sub}(:,1);
+        elseif TimeInt_stop==3
+            stopT=eventsTime{nH+1,sub}(:,5);
+        end
+
+        tr_nTe=nTe:nH+1:length(err_trial{nH+1,sub});
+        TR=nan(length(tr_nTe),2); % time spent looking right
+        for n_t=tr_nTe
+            if TrialDiff{nH+1,sub}(n_t)>binsEdgeDiff(stimDiff) && TrialDiff{nH+1,sub}(n_t)<=binsEdgeDiff(stimDiff+1)
+                continue
+            end
+            ind_int=find((eTime{nH+1,sub}(:,n_t)>goT(n_t))&(eTime{nH+1,sub}(:,n_t)<stopT(n_t)));
+            if sum(isnan(eyesX{nH+1,sub}(ind_int,n_t)))>0.2*length(ind_int)
+                continue
+            end
+            look=[sum(eyesX{nH+1,sub}(ind_int,n_t)<-borderSaccade),sum(eyesX{nH+1,sub}(ind_int,n_t)>borderSaccade)];
+            temp=(choice{nH+1,sub}(n_t)+1)/2;
+            if orderPres(n_t)==1 % to check 1st/2nd stim - choice
+                temp=1-temp;
+            end
+            n_t1=ceil(n_t/(nH+1));
+            TR(n_t1,:)=[look(orderPres(n_t))/look(3-orderPres(n_t)),temp];
+        end
+        % remove outliers
+        temp1=~isoutlier(TR(:,1));
+        TR=[TR(temp1,1),TR(temp1,2)];
+        
+        TR_sort=sort(TR(:,1));
+        TR_sort=TR_sort(~isnan(TR_sort));
+
+        xEd=[TR_sort(1),TR_sort(floor(length(TR_sort)/4));
+            TR_sort(ceil(length(TR_sort)/4)),TR_sort(floor(length(TR_sort)/2));
+            TR_sort(ceil(length(TR_sort)/2)),TR_sort(floor(3*length(TR_sort)/4));
+            TR_sort(ceil(3*length(TR_sort)/4)),TR_sort(end)];
+        
+
+        for i=1:size(xEd,1)
+            temp=find(TR(:,1)>=xEd(i,1) & TR(:,1)<=xEd(i,2));
+            mm(sub-9,i)=mean(TR(temp,2));
+            ss(sub-9,i)=std(TR(temp,2));
+        end
+        xEd_p(sub-9,:)=log(mean(xEd,2));
+        
+    end
+        yneg = 1.95*std(mm)/size(mm,1);
+        ypos = yneg;
+        xneg = 1.95*std(xEd_p)/size(xEd_p,1);
+        xpos = xneg;
+        errorbar(mean(xEd_p),mean(mm),yneg,ypos,xneg,xpos,'r','Marker','o','Color',col_d(stimDiff,:),'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         plot(mean(xEd_p),mean(mm),'Marker','o','Color',col_d(stimDiff,:),'LineWidth',1.2,'DisplayName',['diff=',binsEdgeName{stimDiff}])
+%         ax.XScale='log';      
+    end
+    ylim([0,1])
+%     yline(0.5,'k--')
+    xlim([-1.2,1.2])
+    if nH+1~=nTe
+        yticks([])
+    else
+        ylabel(['nTe=',num2str(nTe)])
+    end
+    if nTe==1
+        title(['nH=',num2str(nH)]);
+    end
+    if nTe~=nH+1
+        xticks([])
+    end
+    box on; ax.FontSize=font_dim;
+    end
+end
+legend('Location','northwest')
+ylabel(tl,'Choose 1st-Stim','Interpreter','latex','FontSize',font_dim+2)
+xlabel(tl,'$log(T_1/T_2)$','Interpreter','latex','FontSize',font_dim+2)
+title(tl,['From ',TimeInt_go_label,' to ',TimeInt_stop_label,' - Quartile - nTe'],'Interpreter','latex','FontSize',font_dim+2)
+
+if salva
+    name=[folderSave,'Fig_T1T2vsPr_Quart_nHDiff_nTe'];
+    print(gcf,name,'-dpng')
+end
+
+
+
+
+
+%% 
