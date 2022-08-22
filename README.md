@@ -8,7 +8,7 @@ Authors: Gloria Cecchini (MATLAB preprocessing scripts), Michael DePass (.mat to
     - Plot behavior data including decisions & oculometry
     - Export data to .mat file 
 3. .mat to .csv Python conversion script ideal for import to Pandas dataframe.
-4. [Link to raw data](https://drive.google.com/drive/folders/1I9lFkNSw71a0NRWHtM_x7pKMZz-m4sxR?usp=sharing).and inputs/outputs for the scripts. 
+4. [Link to raw data](https://drive.google.com/drive/folders/1I9lFkNSw71a0NRWHtM_x7pKMZz-m4sxR?usp=sharing) and inputs/outputs for the scripts. 
 
 ### MATLAB Pipeline Instructions
 0. Import empty database (MySQL_coredembcn_baseline.sql) to MySQL 
