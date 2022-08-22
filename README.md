@@ -8,6 +8,7 @@ Authors: Gloria Cecchini (MATLAB preprocessing scripts), Michael DePass (.mat to
     - Plot behavior data including decisions & oculometry
     - Export data to .mat file 
 3. .mat to .csv Python conversion script ideal for import to Pandas dataframe.
+4. [Link to raw data](https://drive.google.com/drive/folders/1I9lFkNSw71a0NRWHtM_x7pKMZz-m4sxR?usp=sharing).and inputs/outputs for the scripts. 
 
 ### MATLAB Pipeline Instructions
 0. Import empty database (MySQL_coredembcn_baseline.sql) to MySQL 
@@ -21,6 +22,7 @@ Authors: Gloria Cecchini (MATLAB preprocessing scripts), Michael DePass (.mat to
 6. Continuing follow instructions in the prompts.
    - When asked "Do you want to include all participants?", this refers to whether you want to continue plotting all uploaded particpipants or a subset (array containing indices of desired subjects for plotting). 
    - Note: Only last 18 participants have oculometry data. 
+   
 *Direct questions regarding MATLAB pipeline to gloria.cecchini@ub.edu*
 
 ### mat2csv
@@ -28,6 +30,7 @@ Input: aggregate .mat file (output from Main.m)
 Output: Pandas-ready .csv file
 1. Edit mat_file_name and csv_file_name variables as appropriate. 
 2. Execute
+
 *Direct questions regarding mat2csv to michael.depass@ub.edu*
 
 ### Example Output
