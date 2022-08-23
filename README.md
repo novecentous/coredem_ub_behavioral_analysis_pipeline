@@ -1,7 +1,7 @@
 # Behavioral Analysis Preprocessing Pipeline
 Authors: Gloria Cecchini (MATLAB preprocessing scripts), Michael DePass (.mat to .csv Python script)
 ## Contents
-1. MySQL database (.sql) for storing data 
+1. MySQL database backup (.sql) for storing data 
 2. MATLAB scripts (.m) for behavioral data preprocessing
     - Import and organize .bhv2 MonkeyLogic files
     - Write data to MySQL database 
