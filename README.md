@@ -3,6 +3,7 @@ Authors: Gloria Cecchini (MATLAB preprocessing scripts), Michael DePass (.mat to
 ## Contents
 1. MySQL database (.sql) for storing data 
 2. MATLAB scripts (.m) for behavioral data preprocessing
+    - Import and organize .bhv2 MonkeyLogic files
     - Write data to MySQL database 
     - Load data from MySQL database
     - Plot behavior data including decisions & oculometry
